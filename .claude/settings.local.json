@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test:*)",
+      "Bash(expect:*)",
+      "Bash(mkdir:*)",
+      "Bash(md-tree explode:*)",
+      "Bash(npm install:*)",
+      "Bash(sudo:*)",
+      "Bash(tree:*)",
+      "Bash(chmod:*)",
+      "Bash(pnpm install:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git config:*)",
+      "Bash(npx husky install:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm format:check:*)",
+      "Bash(pnpm format:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@websocket-relay/shared",
+  "version": "1.0.0",
+  "description": "Shared types and utilities for WebSocket Relay Platform",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "shared",
+    "types",
+    "utils"
+  ],
+  "author": "",
+  "license": "MIT"
+}
