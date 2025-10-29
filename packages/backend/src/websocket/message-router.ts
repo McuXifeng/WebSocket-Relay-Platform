@@ -9,6 +9,10 @@ import { connectionManager } from './connection-manager';
 import { updateEndpointStats } from '../services/stats.service';
 import { saveMessageAsync } from '../services/message.service';
 import { nanoid } from 'nanoid';
+import { PrismaClient } from '@prisma/client';
+
+// 创建 Prisma 客户端
+const prisma = new PrismaClient();
 
 /**
  * 扩展 WebSocket 接口以包含连接标识和设备信息
@@ -101,11 +105,89 @@ export async function broadcastToEndpoint(
   // 1. 获取该端点的所有连接
   const connections = connectionManager.getConnections(endpointId);
 
-  // 2. 标准化消息格式
-  const normalizedMessage = normalizeMessage(message);
+  // 2. 查询端点的转发模式和自定义帧头
+  let endpoint;
+  try {
+    endpoint = await prisma.endpoint.findUnique({
+      where: { id: dbEndpointId },
+      select: { id: true, forwarding_mode: true, custom_header: true },
+    });
 
-  // 3. 序列化消息(在循环外部统一序列化,避免重复操作)
-  const messageStr = JSON.stringify(normalizedMessage);
+    if (!endpoint) {
+      console.error(`[消息路由] 端点不存在: ${endpointId} (${dbEndpointId})`);
+      return;
+    }
+  } catch (error) {
+    console.error(`[消息路由] 查询端点失败: ${endpointId}`, error);
+    return;
+  }
+
+  // 3. 根据转发模式处理消息
+  let processedMessage: unknown;
+  let messageStr: string;
+
+  switch (endpoint.forwarding_mode) {
+    case 'DIRECT': {
+      // 直接转发原始消息，不做任何处理
+      processedMessage = message;
+      // eslint-disable-next-line no-console
+      console.log(`[消息路由] 转发模式: DIRECT, 端点: ${endpointId}`);
+
+      // 对于 DIRECT 模式，需要特殊处理序列化
+      if (typeof message === 'string') {
+        messageStr = message;
+      } else if (Buffer.isBuffer(message)) {
+        messageStr = message.toString();
+      } else {
+        messageStr = JSON.stringify(message);
+      }
+      break;
+    }
+
+    case 'JSON': {
+      // 使用现有的 normalizeMessage 逻辑
+      processedMessage = normalizeMessage(message);
+      messageStr = JSON.stringify(processedMessage);
+      // eslint-disable-next-line no-console
+      console.log(`[消息路由] 转发模式: JSON, 端点: ${endpointId}`);
+      break;
+    }
+
+    case 'CUSTOM_HEADER': {
+      // 简单字符串拼接：custom_header + 原始消息
+      const customHeader = endpoint.custom_header || '';
+
+      // 将原始消息转换为字符串
+      let messageContent: string;
+      if (typeof message === 'string') {
+        messageContent = message;
+      } else if (Buffer.isBuffer(message)) {
+        messageContent = message.toString();
+      } else {
+        messageContent = JSON.stringify(message);
+      }
+
+      // 拼接帧头和消息内容
+      messageStr = customHeader + messageContent;
+      processedMessage = messageStr; // 保持一致性，虽然不会在广播中使用
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `[消息路由] 转发模式: CUSTOM_HEADER, 端点: ${endpointId}, 帧头: "${customHeader}", 原始消息: "${messageContent}", 转发消息: "${messageStr}"`
+      );
+      break;
+    }
+
+    default: {
+      // 默认使用 JSON 模式（向后兼容）
+      processedMessage = normalizeMessage(message);
+      messageStr = JSON.stringify(processedMessage);
+      console.warn(
+        `[消息路由] 未知转发模式: ${String(endpoint.forwarding_mode)}, 使用默认 JSON 模式, 端点: ${endpointId}`
+      );
+      break;
+    }
+  }
 
   // 4. 异步存储消息到数据库 (不阻塞广播)
   const senderInfo = getSenderInfo(senderSocket);

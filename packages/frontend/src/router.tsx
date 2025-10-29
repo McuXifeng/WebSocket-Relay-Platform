@@ -1,13 +1,15 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import EndpointDetailPage from './pages/EndpointDetailPage';
 import ProfilePage from './pages/ProfilePage';
-import WebSocketDocPage from './pages/WebSocketDocPage';
+import UserGuidePage from './pages/UserGuidePage';
+import DeveloperGuidePage from './pages/DeveloperGuidePage';
 import InviteCodesPage from './pages/admin/InviteCodesPage';
 import UsersPage from './pages/admin/UsersPage';
+import AdminUserEndpointsPage from './pages/admin/AdminUserEndpointsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/common/AdminRoute';
 
@@ -57,10 +59,22 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: 'docs/websocket-usage',
+        path: 'docs',
+        element: <Navigate to="/docs/user" replace />,
+      },
+      {
+        path: 'docs/user',
         element: (
           <ProtectedRoute>
-            <WebSocketDocPage />
+            <UserGuidePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'docs/developer',
+        element: (
+          <ProtectedRoute>
+            <DeveloperGuidePage />
           </ProtectedRoute>
         ),
       },
@@ -77,6 +91,14 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <UsersPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: 'admin/users/:userId/endpoints',
+        element: (
+          <AdminRoute>
+            <AdminUserEndpointsPage />
           </AdminRoute>
         ),
       },

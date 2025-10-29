@@ -1,6 +1,6 @@
 {
   "name": "websocket-relay-platform",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "WebSocket Relay Platform - A real-time message relay system",
   "private": true,
   "type": "module",

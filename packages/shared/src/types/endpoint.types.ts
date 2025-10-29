@@ -1,6 +1,15 @@
 // Endpoint types
 
 /**
+ * 转发模式枚举
+ */
+export enum ForwardingMode {
+  DIRECT = 'DIRECT', // 直接转发原始消息
+  JSON = 'JSON', // JSON 标准化转发
+  CUSTOM_HEADER = 'CUSTOM_HEADER', // 自定义帧头转发
+}
+
+/**
  * 端点数据模型 (对应 Prisma Endpoint 模型)
  */
 export interface Endpoint {
@@ -8,6 +17,8 @@ export interface Endpoint {
   endpoint_id: string; // 8-12 位唯一 ID
   name: string; // 端点名称
   user_id: string; // 所属用户 ID
+  forwarding_mode: ForwardingMode; // 转发模式
+  custom_header: string | null; // 自定义帧头 (仅在 CUSTOM_HEADER 模式下使用)
   created_at: Date; // 创建时间
   last_active_at: Date | null; // 最后活跃时间
 }
@@ -24,6 +35,8 @@ export interface EndpointWithUrl extends Endpoint {
  */
 export interface CreateEndpointRequest {
   name?: string; // 可选,默认"未命名端点"
+  forwarding_mode?: ForwardingMode; // 可选,默认 JSON
+  custom_header?: string; // 可选,自定义帧头 (仅在 CUSTOM_HEADER 模式下使用)
 }
 
 /**

@@ -1,6 +1,21 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Descriptions, Button, Spin, Result, Space, message, Modal, Card, Grid } from 'antd';
+import {
+  Descriptions,
+  Button,
+  Spin,
+  Result,
+  Space,
+  message,
+  Modal,
+  Card,
+  Grid,
+  Tag,
+  Tooltip,
+  Radio,
+  Form,
+  Input,
+} from 'antd';
 import {
   CopyOutlined,
   DeleteOutlined,
@@ -8,14 +23,18 @@ import {
   ExclamationCircleOutlined,
   BookOutlined,
   ReloadOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import type {
-  EndpointWithUrl,
-  EndpointStatsResponse,
-} from '@websocket-relay/shared/types/endpoint.types';
-import { getEndpointById, deleteEndpoint, getEndpointStats } from '../services/endpoint.service';
+import type { EndpointWithUrl, EndpointStatsResponse } from '@websocket-relay/shared';
+import { ForwardingMode } from '@websocket-relay/shared';
+import {
+  getEndpointById,
+  deleteEndpoint,
+  getEndpointStats,
+  updateForwardingMode,
+} from '../services/endpoint.service';
 import EndpointStatsCard from '../components/endpoints/EndpointStatsCard';
 import MessageHistoryCard from '../components/endpoints/MessageHistoryCard';
 import DeviceListCard from '../components/endpoints/DeviceListCard';
@@ -56,6 +75,11 @@ function EndpointDetailPage() {
   // 统计数据状态
   const [stats, setStats] = useState<EndpointStatsResponse | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+
+  // 修改转发模式状态
+  const [isForwardingModeModalOpen, setIsForwardingModeModalOpen] = useState(false);
+  const [updatingForwardingMode, setUpdatingForwardingMode] = useState(false);
+  const [forwardingModeForm] = Form.useForm();
 
   // 加载端点详情
   useEffect(() => {
@@ -218,6 +242,88 @@ function EndpointDetailPage() {
     return format(new Date(dateString), 'yyyy-MM-dd HH:mm:ss', { locale: zhCN });
   };
 
+  // 打开修改转发模式 Modal
+  const handleOpenForwardingModeModal = () => {
+    if (endpoint) {
+      forwardingModeForm.setFieldsValue({
+        forwarding_mode: endpoint.forwarding_mode,
+        custom_header: endpoint.custom_header ?? '',
+      });
+      setIsForwardingModeModalOpen(true);
+    }
+  };
+
+  // 关闭修改转发模式 Modal
+  const handleCloseForwardingModeModal = () => {
+    setIsForwardingModeModalOpen(false);
+    forwardingModeForm.resetFields();
+  };
+
+  // 处理转发模式更新
+  const handleUpdateForwardingMode = async () => {
+    if (!id || typeof id !== 'string' || !endpoint) {
+      return;
+    }
+
+    try {
+      setUpdatingForwardingMode(true);
+      const values = forwardingModeForm.getFieldsValue() as {
+        forwarding_mode: string;
+        custom_header?: string;
+      };
+      const updatedEndpoint = await updateForwardingMode(
+        id,
+        values.forwarding_mode,
+        values.custom_header || null
+      );
+      setEndpoint(updatedEndpoint);
+      void message.success('转发模式已更新');
+      handleCloseForwardingModeModal();
+    } catch (err: unknown) {
+      const error = err as {
+        response?: {
+          data?: {
+            error?: {
+              message?: string;
+            };
+          };
+        };
+        message?: string;
+      };
+
+      const errorMessage = error.response?.data?.error?.message || '更新失败';
+      void message.error(errorMessage);
+    } finally {
+      setUpdatingForwardingMode(false);
+    }
+  };
+
+  // 渲染转发模式标签
+  const renderForwardingModeTag = (mode: ForwardingMode) => {
+    switch (mode) {
+      case ForwardingMode.DIRECT:
+        return (
+          <Tooltip title="消息原样转发，不做任何处理">
+            <Tag color="default">直接转发</Tag>
+          </Tooltip>
+        );
+      case ForwardingMode.JSON:
+        return (
+          <Tooltip title="消息标准化为 JSON 格式（推荐）">
+            <Tag color="blue">JSON 标准化</Tag>
+          </Tooltip>
+        );
+      case ForwardingMode.CUSTOM_HEADER:
+        return (
+          <Tooltip title="在消息前添加自定义帧头（简单字符串拼接）">
+            <Tag color="purple">自定义帧头</Tag>
+          </Tooltip>
+        );
+      default:
+        return <Tag color="default">未知模式</Tag>;
+    }
+  };
+
   // 加载状态
   if (loading) {
     return (
@@ -268,11 +374,11 @@ function EndpointDetailPage() {
             type="default"
             icon={<BookOutlined />}
             onClick={() => {
-              void navigate('/docs/websocket-usage');
+              void navigate('/docs/developer');
             }}
             block={isMobile}
           >
-            查看使用文档
+            查看开发文档
           </Button>
         </Space>
 
@@ -282,6 +388,27 @@ function EndpointDetailPage() {
             <Descriptions.Item label="端点名称">{currentEndpoint.name}</Descriptions.Item>
 
             <Descriptions.Item label="端点 ID">{currentEndpoint.endpoint_id}</Descriptions.Item>
+
+            <Descriptions.Item label="转发模式">
+              <Space>
+                {renderForwardingModeTag(currentEndpoint.forwarding_mode)}
+                <Button
+                  icon={<EditOutlined />}
+                  size="small"
+                  onClick={handleOpenForwardingModeModal}
+                  type="link"
+                >
+                  修改
+                </Button>
+              </Space>
+            </Descriptions.Item>
+
+            {/* 自定义帧头显示 - 仅在 CUSTOM_HEADER 模式下显示 */}
+            {currentEndpoint.forwarding_mode === ForwardingMode.CUSTOM_HEADER && (
+              <Descriptions.Item label="自定义帧头">
+                <Tag color="geekblue">{currentEndpoint.custom_header || '(未设置)'}</Tag>
+              </Descriptions.Item>
+            )}
 
             <Descriptions.Item label="WebSocket URL" span={isMobile ? 1 : 2}>
               <div
@@ -364,6 +491,80 @@ function EndpointDetailPage() {
           </Space>
         </Card>
       </Space>
+
+      {/* 修改转发模式 Modal */}
+      <Modal
+        title="修改转发模式"
+        open={isForwardingModeModalOpen}
+        onOk={() => void handleUpdateForwardingMode()}
+        onCancel={handleCloseForwardingModeModal}
+        confirmLoading={updatingForwardingMode}
+        okText="确认"
+        cancelText="取消"
+      >
+        <Form form={forwardingModeForm} layout="vertical">
+          <Form.Item
+            name="forwarding_mode"
+            label="转发模式"
+            rules={[{ required: true, message: '请选择转发模式' }]}
+          >
+            <Radio.Group>
+              <Space direction="vertical">
+                <Radio value={ForwardingMode.DIRECT}>
+                  <Tooltip title="消息原样转发，不做任何处理">直接转发（原始消息）</Tooltip>
+                </Radio>
+                <Radio value={ForwardingMode.JSON}>
+                  <Tooltip title="消息标准化为 JSON 格式（推荐）">JSON 标准化转发（推荐）</Tooltip>
+                </Radio>
+                <Radio value={ForwardingMode.CUSTOM_HEADER}>
+                  <Tooltip title="在消息前添加自定义帧头（简单字符串拼接）">
+                    自定义帧头转发（高级）
+                  </Tooltip>
+                </Radio>
+              </Space>
+            </Radio.Group>
+          </Form.Item>
+
+          <Form.Item
+            noStyle
+            shouldUpdate={(
+              prevValues: { forwarding_mode?: ForwardingMode },
+              currentValues: { forwarding_mode?: ForwardingMode }
+            ) => prevValues.forwarding_mode !== currentValues.forwarding_mode}
+          >
+            {({ getFieldValue }) =>
+              (getFieldValue('forwarding_mode') as ForwardingMode) ===
+              ForwardingMode.CUSTOM_HEADER ? (
+                <Form.Item
+                  name="custom_header"
+                  label={
+                    <span>
+                      自定义帧头字符串{' '}
+                      <Tooltip title="将在每条消息前添加此字符串（简单拼接，不包含时间戳等信息）">
+                        <span style={{ cursor: 'help', color: '#999' }}>ⓘ</span>
+                      </Tooltip>
+                    </span>
+                  }
+                  rules={[
+                    { max: 255, message: '自定义帧头不能超过255个字符' },
+                    {
+                      required: true,
+                      message: '使用自定义帧头模式时，请设置帧头字符串',
+                    },
+                  ]}
+                >
+                  <Input.TextArea
+                    placeholder="例如：[MSG] 或 Header:"
+                    rows={3}
+                    showCount
+                    maxLength={255}
+                  />
+                </Form.Item>
+              ) : null
+            }
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

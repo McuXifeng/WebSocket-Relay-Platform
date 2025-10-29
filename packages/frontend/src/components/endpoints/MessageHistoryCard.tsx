@@ -11,7 +11,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { getEndpointMessages } from '../../services/endpoint.service';
-import type { Message } from '@websocket-relay/shared/types/message.types';
+import type { Message } from '@websocket-relay/shared';
 import { usePolling } from '../../hooks/usePolling';
 
 interface MessageHistoryCardProps {
@@ -181,41 +181,42 @@ export default function MessageHistoryCard({ endpointId }: MessageHistoryCardPro
             <List.Item>
               <List.Item.Meta
                 title={
-                  <div>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}
+                  >
+                    <span style={{ fontWeight: 500 }}>
+                      {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
+                      {msg.sender_info || '未知设备'}
+                    </span>
                     {isJson && <Tag color="blue">JSON</Tag>}
                     {messageType && <Tag color="green">{messageType}</Tag>}
-                    <Typography.Paragraph
-                      ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
-                      style={{
-                        wordBreak: 'break-word',
-                        whiteSpace: 'pre-wrap',
-                        fontFamily: isJson ? 'monospace' : 'inherit',
-                        marginBottom: 0,
-                      }}
-                    >
-                      {formatted}
-                    </Typography.Paragraph>
+                    <span style={{ color: '#999', fontSize: '13px' }}>
+                      {/* eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access */}
+                      {formatDistanceToNow(new Date(msg.created_at), {
+                        addSuffix: true,
+                        locale: zhCN,
+                      })}
+                    </span>
+                    {timestamp && (
+                      <span style={{ color: '#999', fontSize: '12px' }}>
+                        · 消息时间戳: {new Date(timestamp).toLocaleTimeString('zh-CN')}
+                      </span>
+                    )}
                   </div>
                 }
                 description={
-                  <>
-                    {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
-                    {msg.sender_info || '未知设备'}
-                    {' · '}
-                    {/* eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access */}
-                    {formatDistanceToNow(new Date(msg.created_at), {
-                      addSuffix: true,
-                      locale: zhCN,
-                    })}
-                    {timestamp && (
-                      <>
-                        {' · '}
-                        <span style={{ color: '#999', fontSize: '12px' }}>
-                          消息时间戳: {new Date(timestamp).toLocaleTimeString('zh-CN')}
-                        </span>
-                      </>
-                    )}
-                  </>
+                  <Typography.Paragraph
+                    ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
+                    style={{
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: isJson ? 'monospace' : 'inherit',
+                      marginBottom: 0,
+                      marginTop: 8,
+                    }}
+                  >
+                    {formatted}
+                  </Typography.Paragraph>
                 }
               />
             </List.Item>

@@ -6,7 +6,7 @@ import {
   UserOutlined,
   HomeOutlined,
   SettingOutlined,
-  FileTextOutlined,
+  BookOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
@@ -119,11 +119,24 @@ function MainLayout() {
     },
     {
       key: 'docs',
-      icon: <FileTextOutlined />,
-      label: '使用文档',
-      onClick: () => {
-        void navigate('/docs/websocket-usage');
-      },
+      icon: <BookOutlined />,
+      label: '文档',
+      children: [
+        {
+          key: 'docs-user',
+          label: '用户使用说明',
+          onClick: () => {
+            void navigate('/docs/user');
+          },
+        },
+        {
+          key: 'docs-developer',
+          label: '二次开发说明',
+          onClick: () => {
+            void navigate('/docs/developer');
+          },
+        },
+      ],
     },
     {
       key: 'settings',

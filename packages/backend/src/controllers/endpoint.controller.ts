@@ -44,10 +44,19 @@ export async function createEndpoint(
     const requestBody = req.body as CreateEndpointRequest;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const name = requestBody.name;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const forwarding_mode = requestBody.forwarding_mode;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const custom_header = requestBody.custom_header;
 
     // 调用 Service 层创建端点
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument
-    const endpoint = await endpointService.createEndpoint(userId, name);
+    const endpoint = await endpointService.createEndpoint(
+      userId,
+      name,
+      forwarding_mode,
+      custom_header
+    );
 
     // 构建响应数据
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -347,6 +356,63 @@ export async function getEndpointDevices(
     // 5. 返回成功响应 (200 OK)
     res.status(200).json({
       data: response,
+    });
+  } catch (error) {
+    // 将错误传递给错误处理中间件
+    next(error);
+  }
+}
+
+/**
+ * 更新端点转发模式和自定义帧头控制器
+ * Story 5.6: 实现端点自定义转发规则配置
+ *
+ * @route PUT /api/endpoints/:id/forwarding-mode
+ * @param req - Express 请求对象,包含端点 ID
+ * @param res - Express 响应对象
+ * @param next - Express 下一个中间件函数
+ */
+export async function updateForwardingMode(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    // 从 req.user 获取 userId (由 authenticateToken 中间件附加)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      throw new AppError('UNAUTHORIZED', '用户认证信息无效', 401);
+    }
+
+    // 从路由参数获取端点 ID
+    const endpointId = req.params.id;
+
+    // 从请求体获取新的转发模式和自定义帧头
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const { forwarding_mode, custom_header } = req.body as {
+      forwarding_mode: string;
+      custom_header?: string | null;
+    };
+
+    // 验证请求体
+    if (!forwarding_mode) {
+      throw new AppError('INVALID_INPUT', '转发模式不能为空', 400);
+    }
+
+    // 调用 Service 层更新转发模式和自定义帧头
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const endpoint = await endpointService.updateForwardingMode(
+      endpointId,
+      userId,
+      forwarding_mode,
+      custom_header
+    );
+
+    // 返回成功响应 (200 OK)
+    res.status(200).json({
+      data: { endpoint },
     });
   } catch (error) {
     // 将错误传递给错误处理中间件

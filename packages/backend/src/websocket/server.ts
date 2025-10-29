@@ -170,6 +170,14 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
     // 使用立即执行的异步函数处理消息
     void (async () => {
       try {
+        // 获取 endpointId 和 endpoint
+        const endpointId = socket.endpointId;
+        const endpoint = socket.endpoint;
+        if (!endpointId || !endpoint) {
+          console.error('Message received from socket without endpointId or endpoint');
+          return;
+        }
+
         // 将 Buffer 转换为字符串
         let messageStr: string;
         if (Buffer.isBuffer(data)) {
@@ -180,51 +188,63 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
           messageStr = Buffer.concat(data).toString();
         }
 
-        // 尝试解析 JSON,如果失败则将原始文本作为消息内容
-        let parsedMessage: unknown;
+        // 【修复】提前尝试检测设备标识消息（无论转发模式）
         try {
-          parsedMessage = JSON.parse(messageStr) as unknown;
-        } catch (parseError) {
-          // JSON 解析失败,将原始文本包装为标准消息格式
+          const parsedMessage = JSON.parse(messageStr) as unknown;
+          // 检查是否为设备标识消息
+          if (
+            typeof parsedMessage === 'object' &&
+            parsedMessage !== null &&
+            'type' in parsedMessage &&
+            parsedMessage.type === 'identify' &&
+            'deviceId' in parsedMessage &&
+            typeof parsedMessage.deviceId === 'string'
+          ) {
+            // 处理设备标识消息
+            await handleIdentify(
+              socket,
+              parsedMessage as { deviceId: string; deviceName?: string }
+            );
+            return; // 设备标识消息不进入转发流程
+          }
+        } catch {
+          // JSON 解析失败，继续按原转发模式处理（这是预期行为，不记录错误）
+        }
+
+        // 根据端点的转发模式处理消息
+        let processedMessage: unknown;
+
+        if (endpoint.forwarding_mode === 'DIRECT' || endpoint.forwarding_mode === 'CUSTOM_HEADER') {
+          // DIRECT 和 CUSTOM_HEADER 模式：完全不处理，直接传递原始字符串
+          processedMessage = messageStr;
           // eslint-disable-next-line no-console
           console.log(
-            `Received plain text message from endpoint ${socket.endpointId}: ${messageStr.substring(0, 50)}${messageStr.length > 50 ? '...' : ''}`
+            `[接收消息] ${endpoint.forwarding_mode} 模式，端点: ${endpointId}, 原始消息: ${messageStr.substring(0, 50)}${messageStr.length > 50 ? '...' : ''}`
           );
-          parsedMessage = {
-            type: 'message',
-            data: messageStr,
-            timestamp: Date.now(),
-          };
-        }
-
-        // 获取 endpointId 和 endpoint
-        const endpointId = socket.endpointId;
-        const endpoint = socket.endpoint;
-        if (!endpointId || !endpoint) {
-          console.error('Message received from socket without endpointId or endpoint');
-          return;
-        }
-
-        // 检查是否为设备标识消息
-        if (
-          typeof parsedMessage === 'object' &&
-          parsedMessage !== null &&
-          'type' in parsedMessage &&
-          parsedMessage.type === 'identify' &&
-          'deviceId' in parsedMessage &&
-          typeof parsedMessage.deviceId === 'string'
-        ) {
-          // 处理设备标识消息
-          await handleIdentify(socket, parsedMessage as { deviceId: string; deviceName?: string });
-          return;
+        } else {
+          // JSON 模式：尝试解析 JSON
+          try {
+            processedMessage = JSON.parse(messageStr) as unknown;
+          } catch (parseError) {
+            // JSON 解析失败,将原始文本包装为标准消息格式
+            // eslint-disable-next-line no-console
+            console.log(
+              `[接收消息] JSON 解析失败，端点: ${endpointId}, 包装为标准格式: ${messageStr.substring(0, 50)}${messageStr.length > 50 ? '...' : ''}`
+            );
+            processedMessage = {
+              type: 'message',
+              data: messageStr,
+              timestamp: Date.now(),
+            };
+          }
         }
 
         // 记录消息接收日志
         // eslint-disable-next-line no-console
-        console.log(`Message received from endpoint: ${endpointId}`);
+        console.log(`[接收消息] 端点: ${endpointId}, 转发模式: ${endpoint.forwarding_mode}`);
 
         // 广播消息给同一端点的其他客户端 (传递数据库 UUID 用于统计更新)
-        await broadcastToEndpoint(endpointId, parsedMessage, socket, endpoint.id);
+        await broadcastToEndpoint(endpointId, processedMessage, socket, endpoint.id);
       } catch (error) {
         console.error('Error handling message:', error);
       }

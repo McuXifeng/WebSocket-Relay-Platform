@@ -3,8 +3,9 @@ import type {
   CreateInviteCodeRequest,
   CreateInviteCodeResponse,
   GetInviteCodesResponse,
-} from '@websocket-relay/shared/types/invite-code.types';
-import type { GetUsersResponse } from '@websocket-relay/shared/types/user.types';
+  GetUsersResponse,
+  EndpointWithUrl,
+} from '@websocket-relay/shared';
 
 /**
  * 管理员服务
@@ -46,4 +47,22 @@ export async function getInviteCodes(): Promise<GetInviteCodesResponse> {
  */
 export async function getUsers(): Promise<GetUsersResponse> {
   return await api.get<GetUsersResponse>('/admin/users');
+}
+
+/**
+ * 获取指定用户的端点列表
+ * Story 5.3: 用户管理页面 UI 优化
+ *
+ * @param userId 用户 ID
+ * @returns 用户的端点列表
+ */
+export async function getUserEndpoints(userId: string): Promise<EndpointWithUrl[]> {
+  // apiClient 响应拦截器已提取一层 data 字段
+  // 后端返回: { data: { endpoints: [...] } }
+  // 拦截器返回: { data: { endpoints: [...] } }
+  // 需要再提取一次 data 字段
+  const response = await api.get<{ data: { endpoints: EndpointWithUrl[] } }>(
+    `/admin/users/${userId}/endpoints`
+  );
+  return response.data.endpoints;
 }

@@ -69,6 +69,18 @@ router.get(
 );
 
 /**
+ * PUT /:id/forwarding-mode
+ * 更新端点转发模式（需要认证）
+ * 应用 JWT 认证中间件保护路由
+ * Story 5.6: 实现端点自定义转发规则配置
+ */
+router.put(
+  '/:id/forwarding-mode',
+  authenticateToken,
+  endpointController.updateForwardingMode as RequestHandler
+);
+
+/**
  * PUT /:endpointId/devices/:deviceId
  * 更新设备名称（需要认证）
  * 应用 JWT 认证中间件保护路由

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Button,
   Table,
@@ -13,13 +13,29 @@ import {
   Card,
   Dropdown,
   Grid,
+  Tooltip,
+  Popconfirm,
+  Row,
+  Col,
+  Statistic,
+  Radio,
 } from 'antd';
-import { CopyOutlined, EllipsisOutlined, EyeOutlined } from '@ant-design/icons';
+import {
+  CopyOutlined,
+  EllipsisOutlined,
+  EyeOutlined,
+  DeleteOutlined,
+  DatabaseOutlined,
+  CheckCircleOutlined,
+  QuestionCircleOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
-import { format } from 'date-fns';
-import { getEndpoints, createEndpoint } from '@/services/endpoint.service';
-import type { EndpointWithUrl } from '@websocket-relay/shared/types/endpoint.types';
+import { format, isAfter, subDays } from 'date-fns';
+import { getEndpoints, createEndpoint, deleteEndpoint } from '@/services/endpoint.service';
+import type { EndpointWithUrl } from '@websocket-relay/shared';
+import { ForwardingMode } from '@websocket-relay/shared';
+import './DashboardPage.module.css';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -78,6 +94,20 @@ function DashboardPage() {
   };
 
   /**
+   * 计算活跃端点数量（最近7天有活动的端点）
+   *
+   * @param endpoints 端点列表
+   * @returns 活跃端点数量
+   */
+  const calculateActiveEndpoints = (endpoints: EndpointWithUrl[]): number => {
+    const sevenDaysAgo = subDays(new Date(), 7);
+    return endpoints.filter((ep) => {
+      if (!ep.last_active_at) return false;
+      return isAfter(new Date(ep.last_active_at), sevenDaysAgo);
+    }).length;
+  };
+
+  /**
    * 复制 WebSocket URL 到剪贴板
    *
    * @param url WebSocket URL
@@ -93,16 +123,38 @@ function DashboardPage() {
   };
 
   /**
+   * 删除端点
+   *
+   * @param id 端点 ID
+   */
+  const handleDeleteEndpoint = async (id: string) => {
+    try {
+      await deleteEndpoint(id);
+      void message.success('端点删除成功');
+      await fetchEndpoints(); // 刷新端点列表
+    } catch (error) {
+      console.error('删除端点失败:', error);
+      // 错误消息已经在 apiClient 拦截器中显示
+    }
+  };
+
+  /**
    * 创建端点处理函数
    */
   const handleCreateEndpoint = async () => {
     try {
       setCreateLoading(true);
       // 验证表单
-      const values = (await form.validateFields()) as { name?: string };
+      const values = (await form.validateFields()) as {
+        name?: string;
+        forwarding_mode?: ForwardingMode;
+        custom_header?: string;
+      };
       // 调用 createEndpoint API
       const name = values.name ?? undefined;
-      await createEndpoint({ name });
+      const forwarding_mode = values.forwarding_mode ?? undefined;
+      const custom_header = values.custom_header ?? undefined;
+      await createEndpoint({ name, forwarding_mode, custom_header });
       // 创建成功
       void message.success('端点创建成功');
       // 关闭 Modal
@@ -159,7 +211,11 @@ function DashboardPage() {
   /**
    * 构建端点操作菜单项
    */
-  const getActionMenuItems = (endpointId: string, websocketUrl: string): MenuProps['items'] => [
+  const getActionMenuItems = (
+    endpointId: string,
+    websocketUrl: string,
+    endpointName: string
+  ): MenuProps['items'] => [
     {
       key: 'view',
       icon: <EyeOutlined />,
@@ -174,6 +230,27 @@ function DashboardPage() {
       label: '复制 URL',
       onClick: () => {
         void handleCopy(websocketUrl);
+      },
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'delete',
+      icon: <DeleteOutlined />,
+      label: '删除端点',
+      danger: true,
+      onClick: () => {
+        Modal.confirm({
+          title: '确认删除',
+          content: `确定要删除端点"${endpointName}"吗？此操作不可撤销。`,
+          okText: '确认',
+          cancelText: '取消',
+          okButtonProps: { danger: true },
+          onOk: async () => {
+            await handleDeleteEndpoint(endpointId);
+          },
+        });
       },
     },
   ];
@@ -192,13 +269,24 @@ function DashboardPage() {
       title: 'WebSocket URL',
       dataIndex: 'websocket_url',
       key: 'websocket_url',
+      ellipsis: {
+        showTitle: false,
+      },
       render: (url: string) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ flex: 1, wordBreak: 'break-all' }}>{url}</span>
-          <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(url)}>
-            复制
-          </Button>
-        </div>
+        <Tooltip placement="topLeft" title={url}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ flex: 1 }}>{url}</span>
+            <Button
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={() => {
+                void handleCopy(url);
+              }}
+            >
+              复制
+            </Button>
+          </div>
+        </Tooltip>
       ),
     },
     {
@@ -214,18 +302,43 @@ function DashboardPage() {
       key: 'last_active_at',
       width: 180,
       render: (date: string | Date | null) =>
-        date ? formatDateTime(date) : <span style={{ color: '#999' }}>从未活跃</span>,
+        date ? (
+          formatDateTime(date)
+        ) : (
+          <Text type="secondary" style={{ fontSize: '13px' }}>
+            从未活跃
+          </Text>
+        ),
     },
     {
       title: '操作',
       key: 'actions',
-      width: 120,
+      width: 200,
       render: (_text: unknown, record: EndpointWithUrl) => (
-        <Link to={`/endpoints/${record.id}`}>
-          <Button type="link" size="small">
+        <Space size="middle">
+          <Button
+            type="link"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              void navigate(`/endpoints/${record.id}`);
+            }}
+          >
             查看详情
           </Button>
-        </Link>
+          <Popconfirm
+            title="确认删除"
+            description={`确定要删除端点"${record.name}"吗？此操作不可撤销。`}
+            onConfirm={() => void handleDeleteEndpoint(record.id)}
+            okText="确认"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -236,8 +349,22 @@ function DashboardPage() {
   const renderMobileCardList = () => {
     if (endpoints.length === 0) {
       return (
-        <Card style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <p style={{ color: '#999', margin: 0 }}>还没有端点,点击创建按钮开始</p>
+        <Card
+          style={{
+            textAlign: 'center',
+            padding: '80px 24px',
+            background: '#fafafa',
+            borderRadius: '12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          }}
+        >
+          <DatabaseOutlined style={{ fontSize: '64px', color: '#d9d9d9', marginBottom: '16px' }} />
+          <p style={{ fontSize: '16px', color: '#595959', margin: '16px 0 8px' }}>
+            您还没有创建任何端点
+          </p>
+          <p style={{ fontSize: '14px', color: '#8c8c8c', margin: 0 }}>
+            点击上方按钮创建您的第一个端点
+          </p>
         </Card>
       );
     }
@@ -258,14 +385,26 @@ function DashboardPage() {
                     {endpoint.name}
                   </Text>
                   <Dropdown
-                    menu={{ items: getActionMenuItems(endpoint.id, endpoint.websocket_url) }}
+                    menu={{
+                      items: getActionMenuItems(endpoint.id, endpoint.websocket_url, endpoint.name),
+                    }}
                     trigger={['click']}
                   >
-                    <Button type="text" icon={<EllipsisOutlined />} size="large" />
+                    <Button
+                      type="text"
+                      icon={<EllipsisOutlined />}
+                      size="large"
+                      style={{ minWidth: '44px', minHeight: '44px' }}
+                    />
                   </Dropdown>
                 </div>
               }
-              style={{ background: '#fff' }}
+              style={{
+                background: '#fff',
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                transition: 'all 0.3s ease',
+              }}
             >
               <Space direction="vertical" size="small" style={{ width: '100%' }}>
                 {/* WebSocket URL */}
@@ -321,73 +460,231 @@ function DashboardPage() {
   };
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-      {/* 页面标题栏 */}
+    <div style={{ minHeight: 'calc(100vh - 64px)', background: '#f5f5f5', padding: '24px' }}>
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '24px',
+          maxWidth: '1400px',
+          margin: '0 auto',
         }}
       >
-        <Space direction="vertical" size={0}>
-          <Title level={2} style={{ margin: 0 }}>
-            端点管理
-          </Title>
-          <span style={{ color: '#666' }}>管理您的所有 WebSocket 端点</span>
-        </Space>
-        <Button type="primary" size="large" onClick={() => setIsModalOpen(true)}>
-          创建端点
-        </Button>
-      </div>
-
-      {/* 创建端点 Modal */}
-      <Modal
-        title="创建新端点"
-        open={isModalOpen}
-        onOk={() => void handleCreateEndpoint()}
-        onCancel={() => setIsModalOpen(false)}
-        confirmLoading={createLoading}
-        okText="确定"
-        cancelText="取消"
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="name"
-            label="端点名称"
-            rules={[{ max: 50, message: '端点名称不能超过50个字符' }]}
-          >
-            <Input placeholder="未命名端点" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* 端点列表 */}
-      {loading ? (
-        <div style={{ textAlign: 'center', marginTop: '100px' }}>
-          <Spin tip="加载中..." size="large" />
+        {/* 页面标题栏 */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '24px',
+            padding: '20px 24px',
+            background: '#fff',
+            borderRadius: '12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          }}
+        >
+          <Space direction="vertical" size={0}>
+            <Title level={2} style={{ margin: 0 }}>
+              端点管理
+            </Title>
+            <Text type="secondary">管理您的所有 WebSocket 端点</Text>
+          </Space>
+          <Button type="primary" size="large" onClick={() => setIsModalOpen(true)}>
+            创建端点
+          </Button>
         </div>
-      ) : isMobile ? (
-        // 移动端使用 Card 列表视图
-        renderMobileCardList()
-      ) : (
-        // 桌面端使用 Table 视图
-        <Table
-          dataSource={endpoints}
-          columns={columns}
-          rowKey="id"
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total) => `共 ${total} 个端点`,
-          }}
-          locale={{
-            emptyText: '还没有端点,点击创建按钮开始',
-          }}
-          style={{ background: '#fff' }}
-        />
-      )}
+
+        {/* 创建端点 Modal */}
+        <Modal
+          title="创建新端点"
+          open={isModalOpen}
+          onOk={() => void handleCreateEndpoint()}
+          onCancel={() => setIsModalOpen(false)}
+          confirmLoading={createLoading}
+          okText="确定"
+          cancelText="取消"
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="name"
+              label="端点名称"
+              rules={[{ max: 50, message: '端点名称不能超过50个字符' }]}
+            >
+              <Input placeholder="未命名端点" />
+            </Form.Item>
+
+            <Form.Item
+              name="forwarding_mode"
+              label={
+                <span>
+                  转发模式{' '}
+                  <Tooltip title="选择 WebSocket 消息的转发格式">
+                    <QuestionCircleOutlined />
+                  </Tooltip>
+                </span>
+              }
+              initialValue={ForwardingMode.JSON}
+            >
+              <Radio.Group>
+                <Space direction="vertical">
+                  <Radio value={ForwardingMode.DIRECT}>
+                    <Tooltip
+                      title="消息原样转发，不做任何处理，保留原始格式和类型"
+                      placement="right"
+                    >
+                      直接转发（原始消息）
+                    </Tooltip>
+                  </Radio>
+                  <Radio value={ForwardingMode.JSON}>
+                    <Tooltip
+                      title="消息标准化为 JSON 格式，确保格式一致性（推荐）"
+                      placement="right"
+                    >
+                      JSON 标准化转发（推荐）
+                    </Tooltip>
+                  </Radio>
+                  <Radio value={ForwardingMode.CUSTOM_HEADER}>
+                    <Tooltip title="在消息前添加自定义帧头（简单字符串拼接）" placement="right">
+                      自定义帧头转发（高级）
+                    </Tooltip>
+                  </Radio>
+                </Space>
+              </Radio.Group>
+            </Form.Item>
+
+            {/* 自定义帧头输入框 - 仅在选择 CUSTOM_HEADER 模式时显示 */}
+            <Form.Item
+              noStyle
+              shouldUpdate={(
+                prevValues: { forwarding_mode?: ForwardingMode },
+                currentValues: { forwarding_mode?: ForwardingMode }
+              ) => prevValues.forwarding_mode !== currentValues.forwarding_mode}
+            >
+              {({ getFieldValue }) =>
+                getFieldValue('forwarding_mode') === ForwardingMode.CUSTOM_HEADER ? (
+                  <Form.Item
+                    name="custom_header"
+                    label={
+                      <span>
+                        自定义帧头{' '}
+                        <Tooltip title="输入一个字符串作为帧头，消息转发时会在原始数据前添加这个帧头（例如：帧头为 'test'，数据为 'xifeng'，转发数据为 'testxifeng'）">
+                          <QuestionCircleOutlined />
+                        </Tooltip>
+                      </span>
+                    }
+                    rules={[
+                      {
+                        required: true,
+                        message: '请输入自定义帧头',
+                      },
+                      {
+                        max: 100,
+                        message: '帧头长度不能超过 100 个字符',
+                      },
+                    ]}
+                  >
+                    <Input
+                      placeholder="例如：test"
+                      maxLength={100}
+                      showCount
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                ) : null
+              }
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* 统计卡片区域 */}
+        {!loading && (
+          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+            <Col xs={24} sm={12} md={12}>
+              <Card
+                hoverable
+                style={{
+                  borderRadius: '12px',
+                  border: '2px solid #1890ff',
+                  boxShadow: '0 2px 8px rgba(24,144,255,0.15)',
+                  transition: 'all 0.3s ease',
+                }}
+                bodyStyle={{ padding: '24px' }}
+              >
+                <Statistic
+                  title={<span style={{ fontSize: '14px', fontWeight: 500 }}>总端点数</span>}
+                  value={endpoints.length}
+                  prefix={<DatabaseOutlined style={{ fontSize: '24px', color: '#1890ff' }} />}
+                  valueStyle={{ color: '#1890ff', fontSize: '32px', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={12}>
+              <Card
+                hoverable
+                style={{
+                  borderRadius: '12px',
+                  border: '2px solid #52c41a',
+                  boxShadow: '0 2px 8px rgba(82,196,26,0.15)',
+                  transition: 'all 0.3s ease',
+                }}
+                bodyStyle={{ padding: '24px' }}
+              >
+                <Statistic
+                  title={<span style={{ fontSize: '14px', fontWeight: 500 }}>活跃端点数</span>}
+                  value={calculateActiveEndpoints(endpoints)}
+                  suffix={<span style={{ fontSize: '14px' }}>/ 最近7天</span>}
+                  prefix={<CheckCircleOutlined style={{ fontSize: '24px', color: '#52c41a' }} />}
+                  valueStyle={{ color: '#52c41a', fontSize: '32px', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+          </Row>
+        )}
+
+        {/* 端点列表 */}
+        {loading ? (
+          <div style={{ textAlign: 'center', marginTop: '100px' }}>
+            <Spin tip="加载中..." size="large" />
+          </div>
+        ) : isMobile ? (
+          // 移动端使用 Card 列表视图
+          renderMobileCardList()
+        ) : (
+          // 桌面端使用 Table 视图
+          <Table
+            dataSource={endpoints}
+            columns={columns}
+            rowKey="id"
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 个端点`,
+            }}
+            locale={{
+              emptyText: (
+                <div style={{ padding: '80px 24px' }}>
+                  <DatabaseOutlined
+                    style={{ fontSize: '64px', color: '#d9d9d9', marginBottom: '16px' }}
+                  />
+                  <p style={{ fontSize: '16px', color: '#595959', margin: '16px 0 8px' }}>
+                    您还没有创建任何端点
+                  </p>
+                  <p style={{ fontSize: '14px', color: '#8c8c8c', margin: '0 0 16px' }}>
+                    点击上方按钮创建您的第一个端点
+                  </p>
+                  <Button type="primary" size="large" onClick={() => setIsModalOpen(true)}>
+                    创建端点
+                  </Button>
+                </div>
+              ),
+            }}
+            style={{
+              background: '#fff',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            }}
+            rowClassName={(_, index) => (index % 2 === 0 ? 'table-row-light' : 'table-row-dark')}
+          />
+        )}
+      </div>
     </div>
   );
 }

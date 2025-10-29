@@ -2,22 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { Typography, Card, Anchor, Row, Col } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import markdownContent from '../../../../docs/websocket-usage.md?raw';
+import markdownContent from '../../../../docs/developer-guide.md?raw';
 import './WebSocketDocPage.css';
 
 const { Title } = Typography;
 
 /**
- * WebSocket 使用文档页面
+ * 二次开发说明页面
  *
  * 功能:
- * - 渲染 markdown 格式的 WebSocket 使用文档
+ * - 渲染 markdown 格式的二次开发说明文档
+ * - 面向使用平台 API (WebSocket + REST API) 开发自己应用的开发者
  * - 支持 GitHub Flavored Markdown (表格、代码块等)
  * - 响应式布局,移动端友好
  * - 侧边栏大纲导航
  * - 动态替换域名为实际部署域名
  */
-const WebSocketDocPage: React.FC = () => {
+const DeveloperGuidePage: React.FC = () => {
   const [processedContent, setProcessedContent] = useState<string>('');
 
   useEffect(() => {
@@ -29,14 +30,9 @@ const WebSocketDocPage: React.FC = () => {
     const wsHost = window.location.hostname;
     const wsUrl = `${wsProtocol}//${wsHost}${wsPort}`;
 
-    // 替换文档中的占位符
+    // 替换文档中的 ws://localhost:3001 为实际域名
     let content: string = markdownContent;
-
-    // 替换 wss://domain.com 为实际域名
-    content = content.replace(/wss:\/\/domain\.com/g, wsUrl);
-    // 替换 ws://localhost:3001 保持不变 (用于示例说明)
-    // 替换示例 endpoint_id 为更清晰的说明
-    content = content.replace(/your-endpoint-id/g, '{your-endpoint-id}');
+    content = content.replace(/ws:\/\/localhost:3001/g, wsUrl);
 
     setProcessedContent(content);
   }, []);
@@ -62,117 +58,68 @@ const WebSocketDocPage: React.FC = () => {
               }}
               items={[
                 {
-                  key: 'quick-start',
-                  href: '#快速开始',
-                  title: '快速开始',
+                  key: 'overview',
+                  href: '#平台概述',
+                  title: '平台概述',
                   children: [
                     {
-                      key: 'step1',
-                      href: '#步骤-1-注册并登录',
-                      title: '注册登录',
+                      key: 'what-is',
+                      href: '#什么是-WebSocket-Relay-Platform?',
+                      title: '什么是平台',
                     },
                     {
-                      key: 'step2',
-                      href: '#步骤-2-创建-WebSocket-端点',
-                      title: '创建端点',
-                    },
-                    {
-                      key: 'step3',
-                      href: '#步骤-3-连接并开始使用',
-                      title: '连接使用',
+                      key: 'use-cases',
+                      href: '#典型使用场景',
+                      title: '使用场景',
                     },
                   ],
                 },
                 {
-                  key: 'features',
-                  href: '#平台功能介绍',
-                  title: '平台功能',
+                  key: 'websocket-api',
+                  href: '#WebSocket-API-使用说明',
+                  title: 'WebSocket API',
                   children: [
                     {
-                      key: 'endpoint-management',
-                      href: '#1.-端点管理',
-                      title: '端点管理',
+                      key: 'url-format',
+                      href: '#WebSocket-URL-格式',
+                      title: 'URL 格式',
                     },
                     {
-                      key: 'stats',
-                      href: '#2.-实时统计',
-                      title: '实时统计',
-                    },
-                  ],
-                },
-                {
-                  key: 'url-format',
-                  href: '#WebSocket-URL-格式说明',
-                  title: 'URL 格式',
-                  children: [
-                    {
-                      key: 'url-structure',
-                      href: '#URL-组成',
-                      title: 'URL 组成',
-                    },
-                    {
-                      key: 'get-url',
-                      href: '#如何获取-WebSocket-URL?',
-                      title: '如何获取',
-                    },
-                  ],
-                },
-                {
-                  key: 'relay-mechanism',
-                  href: '#消息中继机制',
-                  title: '中继机制',
-                  children: [
-                    {
-                      key: 'how-it-works',
-                      href: '#工作原理',
-                      title: '工作原理',
-                    },
-                    {
-                      key: 'isolation',
-                      href: '#端点隔离',
-                      title: '端点隔离',
+                      key: 'relay-mechanism',
+                      href: '#消息中继机制',
+                      title: '中继机制',
                     },
                     {
                       key: 'message-format',
                       href: '#消息格式建议',
                       title: '消息格式',
                     },
+                    {
+                      key: 'device-identification',
+                      href: '#设备标识协议-可选',
+                      title: '设备标识',
+                    },
                   ],
                 },
                 {
-                  key: 'device-identification',
-                  href: '#设备标识和自定义名称',
-                  title: '设备标识',
+                  key: 'rest-api',
+                  href: '#REST-API-参考',
+                  title: 'REST API',
                   children: [
                     {
-                      key: 'what-is-device-id',
-                      href: '#什么是设备标识?',
-                      title: '什么是设备标识',
+                      key: 'auth-api',
+                      href: '#认证-API',
+                      title: '认证 API',
                     },
                     {
-                      key: 'device-protocol',
-                      href: '#设备标识协议',
-                      title: '标识协议',
+                      key: 'endpoint-api',
+                      href: '#端点管理-API',
+                      title: '端点管理 API',
                     },
                     {
-                      key: 'browser-example',
-                      href: '#浏览器客户端示例',
-                      title: '浏览器示例',
-                    },
-                    {
-                      key: 'nodejs-device-example',
-                      href: '#Node.js-客户端示例',
-                      title: 'Node.js示例',
-                    },
-                    {
-                      key: 'device-id-generation',
-                      href: '#设备-ID-生成和持久化',
-                      title: 'ID生成',
-                    },
-                    {
-                      key: 'manage-devices',
-                      href: '#管理界面查看设备',
-                      title: '管理界面',
+                      key: 'error-handling',
+                      href: '#错误处理',
+                      title: '错误处理',
                     },
                   ],
                 },
@@ -191,17 +138,42 @@ const WebSocketDocPage: React.FC = () => {
                       href: '#Node.js',
                       title: 'Node.js',
                     },
+                    {
+                      key: 'python',
+                      href: '#Python-可选',
+                      title: 'Python',
+                    },
                   ],
                 },
                 {
-                  key: 'troubleshooting',
-                  href: '#错误排查',
-                  title: '错误排查',
+                  key: 'message-protocol',
+                  href: '#消息格式和协议',
+                  title: '消息协议',
+                },
+                {
+                  key: 'best-practices',
+                  href: '#错误处理和最佳实践',
+                  title: '最佳实践',
                   children: [
                     {
-                      key: 'common-issues',
-                      href: '#常见问题',
-                      title: '常见问题',
+                      key: 'connection-error',
+                      href: '#1.-连接失败处理',
+                      title: '连接失败处理',
+                    },
+                    {
+                      key: 'reconnect',
+                      href: '#2.-自动重连机制',
+                      title: '自动重连',
+                    },
+                    {
+                      key: 'message-queue',
+                      href: '#3.-消息队列-连接未建立时暂存消息',
+                      title: '消息队列',
+                    },
+                    {
+                      key: 'heartbeat',
+                      href: '#4.-心跳保活-定期发送-ping-消息',
+                      title: '心跳保活',
                     },
                   ],
                 },
@@ -211,14 +183,21 @@ const WebSocketDocPage: React.FC = () => {
                   title: '安全建议',
                 },
                 {
-                  key: 'best-practices',
-                  href: '#最佳实践',
-                  title: '最佳实践',
-                },
-                {
-                  key: 'complete-example',
-                  href: '#完整示例-简单聊天室',
+                  key: 'complete-examples',
+                  href: '#完整应用示例',
                   title: '完整示例',
+                  children: [
+                    {
+                      key: 'chatroom',
+                      href: '#简单聊天室-HTML-+-JavaScript',
+                      title: '聊天室',
+                    },
+                    {
+                      key: 'iot',
+                      href: '#IoT-设备通信-Node.js',
+                      title: 'IoT 设备',
+                    },
+                  ],
                 },
               ]}
             />
@@ -228,7 +207,7 @@ const WebSocketDocPage: React.FC = () => {
         {/* 右侧文档内容 */}
         <Col xs={24} sm={24} md={18} lg={18} xl={19}>
           <Card className="doc-card">
-            <Title level={2}>WebSocket 使用文档</Title>
+            <Title level={2}>二次开发说明</Title>
             <div className="markdown-content">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -262,6 +241,15 @@ const WebSocketDocPage: React.FC = () => {
                       </h3>
                     );
                   },
+                  h4({ children, ...props }) {
+                    const text = String(children);
+                    const id = text.replace(/[\s:：]/g, '-').replace(/-+/g, '-');
+                    return (
+                      <h4 id={id} {...props}>
+                        {children}
+                      </h4>
+                    );
+                  },
                   // 自定义代码块样式
                   code({ className, children, ...props }) {
                     return (
@@ -290,4 +278,4 @@ const WebSocketDocPage: React.FC = () => {
   );
 };
 
-export default WebSocketDocPage;
+export default DeveloperGuidePage;

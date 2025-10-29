@@ -13,6 +13,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ForwardingMode 枚举
+enum ForwardingMode {
+  DIRECT
+  JSON
+  CUSTOM_HEADER
+}
+
 // User 模型
 model User {
   id            String   @id @default(uuid())
@@ -52,12 +59,14 @@ model InviteCode {
 
 // Endpoint 模型
 model Endpoint {
-  id             String    @id @default(uuid())
-  endpoint_id    String    @unique @db.VarChar(12)
-  name           String    @default("未命名端点") @db.VarChar(100)
-  user_id        String
-  created_at     DateTime  @default(now())
-  last_active_at DateTime?
+  id              String         @id @default(uuid())
+  endpoint_id     String         @unique @db.VarChar(12)
+  name            String         @default("未命名端点") @db.VarChar(100)
+  user_id         String
+  forwarding_mode ForwardingMode @default(JSON)
+  custom_header   String?        @db.VarChar(255)
+  created_at      DateTime       @default(now())
+  last_active_at  DateTime?
 
   user     User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
   stats    EndpointStats?

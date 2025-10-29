@@ -40,4 +40,17 @@ router.get(
  */
 router.get('/users', authenticateToken, requireAdmin, adminController.getUsers as RequestHandler);
 
+/**
+ * GET /users/:userId/endpoints
+ * 获取指定用户的端点列表（需要管理员权限）
+ * 先通过 authenticateToken 验证 JWT,再通过 requireAdmin 验证管理员权限
+ * Story 5.3: 用户管理页面 UI 优化
+ */
+router.get(
+  '/users/:userId/endpoints',
+  authenticateToken,
+  requireAdmin,
+  adminController.getUserEndpoints as RequestHandler
+);
+
 export default router;

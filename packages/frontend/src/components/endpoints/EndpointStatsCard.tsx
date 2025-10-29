@@ -1,6 +1,6 @@
 import { Card, Statistic, Row, Col, Badge, Skeleton } from 'antd';
 import { useRef, useEffect, useState } from 'react';
-import type { EndpointStatsResponse } from '@websocket-relay/shared/types/endpoint.types';
+import type { EndpointStatsResponse } from '@websocket-relay/shared';
 import { formatRelativeTime } from '@/utils/formatTime';
 
 /**

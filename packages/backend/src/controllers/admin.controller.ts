@@ -11,7 +11,9 @@ import type {
   CreateInviteCodeResponse,
   GetInviteCodesResponse,
   GetUsersResponse,
+  GetEndpointsResponse,
 } from '@websocket-relay/shared';
+import * as endpointService from '../services/endpoint.service.js';
 
 /**
  * 创建授权码控制器
@@ -173,6 +175,56 @@ export async function getUsers(_req: Request, res: Response, next: NextFunction)
 
     // 返回成功响应
     res.json(response);
+  } catch (error) {
+    // 将错误传递给错误处理中间件
+    next(error);
+  }
+}
+
+/**
+ * 获取指定用户的端点列表控制器
+ * Story 5.3: 用户管理页面 UI 优化
+ *
+ * @route GET /api/admin/users/:userId/endpoints
+ * @param req - Express 请求对象（包含 userId 路径参数）
+ * @param res - Express 响应对象
+ * @param next - Express 下一个中间件函数
+ */
+export async function getUserEndpoints(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    // 从路径参数获取 userId
+    const { userId } = req.params;
+
+    if (!userId) {
+      throw new AppError('INVALID_REQUEST', '缺少用户 ID 参数', 400);
+    }
+
+    // 验证用户是否存在
+    const prisma = (await import('../config/database.js')).default;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new AppError('USER_NOT_FOUND', '用户不存在', 404);
+    }
+
+    // 调用 Service 层查询该用户的端点列表
+    const endpoints = await endpointService.getEndpointsByUserId(userId);
+
+    // 构建响应数据
+    const response: GetEndpointsResponse = {
+      endpoints,
+    };
+
+    // 返回成功响应 (200 OK)
+    res.status(200).json({
+      data: response,
+    });
   } catch (error) {
     // 将错误传递给错误处理中间件
     next(error);

@@ -1,0 +1,52 @@
+/* DashboardPage 样式 */
+
+/* 表格 hover 效果 */
+:global(.ant-table-tbody > tr:hover > td) {
+  background: #f0f5ff !important;
+  cursor: pointer;
+}
+
+/* 表格斑马纹效果 */
+:global(.table-row-light) {
+  background: #fafafa;
+}
+
+:global(.table-row-dark) {
+  background: #fff;
+}
+
+/* 表头样式优化 */
+:global(.ant-table-thead > tr > th) {
+  background: #fafafa !important;
+  font-weight: 600;
+  color: #262626;
+  padding: 16px 20px !important;
+}
+
+/* 表格单元格内边距 */
+:global(.ant-table-tbody > tr > td) {
+  padding: 16px 20px !important;
+}
+
+/* 表格分页器样式优化 */
+:global(.ant-table-pagination.ant-pagination) {
+  margin: 24px 0 !important;
+  padding: 0 16px;
+  justify-content: center;
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fadeIn {
+  animation: fadeIn 0.5s ease-in;
+}

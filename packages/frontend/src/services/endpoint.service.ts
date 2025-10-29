@@ -5,8 +5,8 @@ import type {
   CreateEndpointRequest,
   CreateEndpointResponse,
   EndpointStatsResponse,
-} from '@websocket-relay/shared/types/endpoint.types';
-import type { GetMessagesResponse } from '@websocket-relay/shared/types/message.types';
+  GetMessagesResponse,
+} from '@websocket-relay/shared';
 
 /**
  * Endpoint API Service
@@ -129,4 +129,33 @@ export async function getEndpointMessages(id: string): Promise<GetMessagesRespon
   // 需要再提取一次 data 字段
   const response = await api.get<{ data: GetMessagesResponse }>(`/endpoints/${id}/messages`);
   return response.data;
+}
+
+/**
+ * 更新端点转发模式和自定义帧头
+ * Story 5.6: 实现端点自定义转发规则配置
+ *
+ * 调用 PUT /api/endpoints/:id/forwarding-mode API
+ * 需要 JWT 认证 (通过 apiClient 拦截器自动附加)
+ *
+ * @param id 端点的数据库主键 (UUID)
+ * @param forwarding_mode 新的转发模式 (DIRECT | JSON | CUSTOM_HEADER)
+ * @param custom_header 自定义帧头（可选，仅在 CUSTOM_HEADER 模式下使用）
+ * @returns Promise<EndpointWithUrl> 更新后的端点信息
+ * @throws {AxiosError} API 请求失败时抛出错误 (404: 端点不存在, 403: 无权访问, 400: 无效的转发模式或自定义帧头)
+ */
+export async function updateForwardingMode(
+  id: string,
+  forwarding_mode: string,
+  custom_header?: string | null
+): Promise<EndpointWithUrl> {
+  // apiClient 响应拦截器已提取一层 data 字段
+  // 后端返回: { data: { endpoint: {...} } }
+  // 拦截器返回: { data: { endpoint: {...} } }
+  // 需要再提取一次 data 字段
+  const response = await api.put<{ data: { endpoint: EndpointWithUrl } }>(
+    `/endpoints/${id}/forwarding-mode`,
+    { forwarding_mode, custom_header }
+  );
+  return response.data.endpoint;
 }

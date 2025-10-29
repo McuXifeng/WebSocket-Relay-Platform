@@ -40,6 +40,7 @@ export type {
   GetEndpointsResponse,
   EndpointStatsResponse,
 } from './endpoint.types';
+export { ForwardingMode } from './endpoint.types';
 
 // Message types
 export type { Message, GetMessagesResponse } from './message.types';
