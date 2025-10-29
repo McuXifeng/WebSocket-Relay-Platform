@@ -5,10 +5,10 @@
     "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
 
     /* Node.js specific */
     "outDir": "./dist",
-    "rootDir": "./src",
     "noEmit": false,
 
     /* Emit */
@@ -36,7 +36,7 @@
       "@shared/*": ["../shared/src/*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"],
+  "include": ["src/**/*", "prisma/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"],
   "references": [{ "path": "../shared" }]
 }

@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User 模型
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique @db.VarChar(30)
+  email         String   @unique @db.VarChar(255)
+  password_hash String   @db.VarChar(255)
+  is_admin      Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  endpoints            Endpoint[]
+  created_invite_codes InviteCode[] @relation("CreatedBy")
+  used_invite_code     InviteCode?  @relation("UsedBy")
+
+  @@index([username])
+  @@index([email])
+  @@map("users")
+}
+
+// InviteCode 模型
+model InviteCode {
+  id         String    @id @default(uuid())
+  code       String    @unique @db.VarChar(12)
+  expires_at DateTime?
+  used_by    String?   @unique
+  used_at    DateTime?
+  created_by String
+  created_at DateTime  @default(now())
+
+  creator User  @relation("CreatedBy", fields: [created_by], references: [id], onDelete: Cascade)
+  user    User? @relation("UsedBy", fields: [used_by], references: [id], onDelete: SetNull)
+
+  @@index([code])
+  @@index([used_by])
+  @@index([created_by])
+  @@map("invite_codes")
+}
+
+// Endpoint 模型
+model Endpoint {
+  id             String    @id @default(uuid())
+  endpoint_id    String    @unique @db.VarChar(12)
+  name           String    @default("未命名端点") @db.VarChar(100)
+  user_id        String
+  created_at     DateTime  @default(now())
+  last_active_at DateTime?
+
+  user     User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  stats    EndpointStats?
+  messages Message[]
+  devices  Device[]
+
+  @@index([endpoint_id])
+  @@index([user_id])
+  @@map("endpoints")
+}
+
+// EndpointStats 模型
+model EndpointStats {
+  id                  String   @id @default(uuid())
+  endpoint_id         String   @unique
+  current_connections Int      @default(0)
+  total_connections   Int      @default(0)
+  total_messages      Int      @default(0)
+  updated_at          DateTime @updatedAt
+
+  endpoint Endpoint @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+
+  @@index([endpoint_id])
+  @@map("endpoint_stats")
+}
+
+// Message 模型
+model Message {
+  id          String   @id @default(uuid())
+  endpoint_id String
+  content     String   @db.Text
+  sender_info String?  @db.VarChar(255)
+  created_at  DateTime @default(now())
+
+  endpoint Endpoint @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+
+  @@index([endpoint_id, created_at])
+  @@map("messages")
+}
+
+// Device 模型
+model Device {
+  id                String   @id @default(uuid())
+  endpoint_id       String
+  device_id         String   @unique @db.VarChar(64)
+  custom_name       String   @db.VarChar(100)
+  last_connected_at DateTime @default(now())
+  created_at        DateTime @default(now())
+
+  endpoint Endpoint @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+
+  @@unique([endpoint_id, device_id])
+  @@index([endpoint_id])
+  @@index([device_id])
+  @@map("devices")
+}

@@ -6,12 +6,17 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter frontend dev & pnpm --filter backend dev",
-    "build": "pnpm --filter frontend build && pnpm --filter backend build",
+    "build": "pnpm --filter shared build && pnpm --filter frontend build && pnpm --filter backend build",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "test": "pnpm --filter backend test && pnpm --filter frontend test",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "start:prod": "pm2 start infrastructure/pm2/ecosystem.config.js",
+    "stop:prod": "pm2 stop all",
+    "restart:prod": "pm2 restart all",
+    "status:prod": "pm2 status",
+    "logs:prod": "pm2 logs"
   },
   "keywords": [
     "websocket",
@@ -27,8 +32,11 @@
     "eslint": "^8.56.0",
     "husky": "^8.0.3",
     "lint-staged": "^15.2.0",
+    "mysql2": "^3.15.3",
     "prettier": "^3.2.4",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "uuid": "^13.0.0",
+    "ws": "^8.18.3"
   },
   "engines": {
     "node": ">=20.0.0",

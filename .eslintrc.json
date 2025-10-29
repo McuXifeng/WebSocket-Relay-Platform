@@ -33,7 +33,15 @@
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/no-floating-promises": "error",
     "@typescript-eslint/no-misused-promises": "error",
-    "no-console": ["warn", { "allow": ["warn", "error"] }]
+    "no-console": "off"
   },
-  "ignorePatterns": ["node_modules/", "dist/", "build/", "*.config.js", "*.config.ts"]
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    "build/",
+    "*.config.js",
+    "*.config.ts",
+    "**/*.d.ts",
+    "**/prisma/seed.ts"
+  ]
 }

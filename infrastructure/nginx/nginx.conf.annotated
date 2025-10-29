@@ -1,0 +1,356 @@
+# ============================================
+# WebSocket Relay Platform - Nginx 配置文件（带注释版本）
+# ============================================
+#
+# 本配置文件用于在生产环境中部署 WebSocket Relay Platform。
+# 包含详细的中文注释，帮助理解每个配置项的作用。
+#
+# 部署步骤:
+# 1. 将此文件复制到 /etc/nginx/sites-available/websocket-relay
+# 2. 修改所有 "your-domain.com" 为实际域名
+# 3. 创建符号链接: sudo ln -s /etc/nginx/sites-available/websocket-relay /etc/nginx/sites-enabled/
+# 4. 测试配置: sudo nginx -t
+# 5. 重启 Nginx: sudo systemctl restart nginx
+# ============================================
+
+
+# ============================================
+# HTTP 服务器配置 (端口 80)
+# ============================================
+# 功能: 将所有 HTTP 请求重定向到 HTTPS
+# 原因: 强制使用加密连接,保证数据传输安全
+# ============================================
+server {
+    # 监听 IPv4 和 IPv6 的 80 端口
+    listen 80;
+    listen [::]:80;
+
+    # 服务器域名配置
+    # 修改为实际域名,支持多个域名(用空格分隔)
+    server_name your-domain.com www.your-domain.com;
+
+    # 301 永久重定向到 HTTPS
+    # $server_name 会自动替换为请求的域名
+    # $request_uri 包含请求的路径和查询参数
+    return 301 https://$server_name$request_uri;
+}
+
+
+# ============================================
+# HTTPS 服务器配置 (端口 443)
+# ============================================
+# 功能: 处理所有 HTTPS/WSS 请求
+# 包括: 前端静态文件、REST API、WebSocket 服务
+# ============================================
+server {
+    # 监听 IPv4 和 IPv6 的 443 端口
+    # ssl: 启用 SSL/TLS 加密
+    # http2: 启用 HTTP/2 协议,提升性能
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+
+    # 服务器域名配置
+    server_name your-domain.com www.your-domain.com;
+
+
+    # ============================================
+    # SSL/TLS 配置
+    # ============================================
+    # 使用 Let's Encrypt 免费证书
+    # 证书路径在获取证书后自动生成
+    # ============================================
+
+    # SSL 证书文件路径 (公钥 + 中间证书链)
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+
+    # SSL 私钥文件路径
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # 支持的 TLS 协议版本
+    # 仅启用 TLS 1.2 和 1.3,禁用不安全的旧版本
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # 优先使用服务器端的加密套件选择
+    ssl_prefer_server_ciphers on;
+
+    # 允许的加密套件列表
+    # 仅使用安全的 ECDHE 密钥交换和 GCM 加密模式
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384';
+
+    # 性能优化选项 (可选)
+    # ssl_session_cache shared:SSL:10m;   # SSL 会话缓存,减少握手开销
+    # ssl_session_timeout 10m;            # 会话缓存超时时间
+    # ssl_stapling on;                    # OCSP Stapling,加速证书验证
+    # ssl_stapling_verify on;             # 验证 OCSP 响应
+
+
+    # ============================================
+    # 安全头配置
+    # ============================================
+    # 通过 HTTP 响应头增强安全性
+    # ============================================
+
+    # X-Frame-Options: 防止网页被嵌入 iframe (防止点击劫持)
+    # SAMEORIGIN: 仅允许同源页面嵌入
+    add_header X-Frame-Options "SAMEORIGIN" always;
+
+    # X-Content-Type-Options: 防止浏览器 MIME 类型嗅探
+    # nosniff: 浏览器必须遵守 Content-Type 声明
+    add_header X-Content-Type-Options "nosniff" always;
+
+    # X-XSS-Protection: 启用浏览器内置的 XSS 过滤器
+    # 1; mode=block: 检测到 XSS 攻击时阻止页面加载
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Referrer-Policy: 控制 Referer 头的发送策略
+    # no-referrer-when-downgrade: HTTPS→HTTP 时不发送 Referer
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # Content-Security-Policy (CSP): 内容安全策略
+    # default-src 'self': 默认仅允许同源资源
+    # connect-src 'self' wss://your-domain.com: 允许同源和 WSS 连接
+    # script-src 'self' 'unsafe-inline': 允许同源脚本和内联脚本 (React 需要)
+    # style-src 'self' 'unsafe-inline': 允许同源样式和内联样式 (Ant Design 需要)
+    # 注意: 修改 wss://your-domain.com 为实际域名
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' wss://your-domain.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
+
+
+    # ============================================
+    # Gzip 压缩配置
+    # ============================================
+    # 启用文本类型文件的压缩,减少传输体积
+    # 压缩率约为 60-80%,显著提升加载速度
+    # ============================================
+
+    # 启用 Gzip 压缩
+    gzip on;
+
+    # 根据 Accept-Encoding 头添加 Vary 响应头
+    # 确保代理服务器正确缓存压缩/非压缩版本
+    gzip_vary on;
+
+    # 对代理请求的响应也启用压缩
+    gzip_proxied any;
+
+    # 压缩级别 (1-9)
+    # 6 是性能和压缩率的良好平衡点
+    # 更高的级别会消耗更多 CPU 但压缩率提升有限
+    gzip_comp_level 6;
+
+    # 需要压缩的 MIME 类型
+    # 包括 HTML、CSS、JavaScript、JSON、XML、字体文件等
+    gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss application/rss+xml font/truetype font/opentype application/vnd.ms-fontobject image/svg+xml;
+
+    # 禁用 IE6 的 Gzip 压缩 (IE6 有 bug)
+    gzip_disable "msie6";
+
+
+    # ============================================
+    # 前端静态文件服务 (React SPA)
+    # ============================================
+    # 功能: 托管 React 构建产物,支持客户端路由
+    # ============================================
+    location / {
+        # 静态文件根目录
+        # 修改为实际的前端构建产物目录
+        # 例如: /var/www/websocket-relay/frontend 或 /home/user/app/packages/frontend/dist
+        root /var/www/websocket-relay/frontend;
+
+        # try_files: 按顺序尝试查找文件
+        # $uri: 请求的原始 URI (如 /about)
+        # $uri/: 尝试作为目录访问 (如 /about/)
+        # /index.html: 如果都不存在,返回 index.html
+        # 这是 React Router 等客户端路由的标准配置
+        try_files $uri $uri/ /index.html;
+
+        # 默认首页文件
+        index index.html;
+
+        # ============================================
+        # 静态资源缓存配置 (嵌套 location)
+        # ============================================
+        # 功能: 为静态资源设置长期缓存
+        # 适用于: JS、CSS、图片、字体等不变的文件
+        # ============================================
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            # 缓存过期时间: 1 年
+            # 前端构建工具会为文件名添加哈希值,因此可以安全地长期缓存
+            expires 1y;
+
+            # Cache-Control 头
+            # public: 允许代理服务器和浏览器缓存
+            # immutable: 告诉浏览器文件永远不会改变,无需验证
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+
+    # ============================================
+    # REST API 反向代理 (Express 后端)
+    # ============================================
+    # 功能: 将 /api/* 请求转发到 Express API 服务器
+    # ============================================
+    location /api/ {
+        # 反向代理目标地址
+        # 将请求转发到本地 3000 端口的 Express 服务器
+        # 尾部斜杠很重要: /api/users → http://localhost:3000/api/users
+        proxy_pass http://localhost:3000/api/;
+
+        # 使用 HTTP/1.1 协议 (支持长连接)
+        proxy_http_version 1.1;
+
+        # 设置代理请求头
+        # Host: 保留原始请求的 Host 头
+        proxy_set_header Host $host;
+
+        # X-Real-IP: 客户端真实 IP 地址
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # X-Forwarded-For: 代理链中的所有 IP 地址
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # X-Forwarded-Proto: 原始请求的协议 (http/https)
+        # 后端可以通过此头判断是否为 HTTPS 请求
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # X-Forwarded-Host: 原始请求的 Host 头
+        proxy_set_header X-Forwarded-Host $server_name;
+
+        # ============================================
+        # 代理超时配置
+        # ============================================
+        # 适用于 REST API 的短期请求
+        # ============================================
+
+        # 与后端建立连接的超时时间
+        proxy_connect_timeout 60s;
+
+        # 向后端发送请求的超时时间
+        proxy_send_timeout 60s;
+
+        # 从后端读取响应的超时时间
+        proxy_read_timeout 60s;
+    }
+
+
+    # ============================================
+    # WebSocket 反向代理 (ws 库服务器)
+    # ============================================
+    # 功能: 将 /ws/* 请求升级为 WebSocket 连接
+    # ============================================
+    location /ws/ {
+        # 反向代理目标地址
+        # 将请求转发到本地 3001 端口的 WebSocket 服务器
+        proxy_pass http://localhost:3001/ws/;
+
+        # 使用 HTTP/1.1 协议 (WebSocket 必需)
+        proxy_http_version 1.1;
+
+        # ============================================
+        # WebSocket 升级头 (关键配置)
+        # ============================================
+        # 必须设置这两个头才能正确处理 WebSocket 握手
+        # ============================================
+
+        # Upgrade: 请求升级协议 (从 HTTP 升级到 WebSocket)
+        # $http_upgrade: 客户端发送的 Upgrade 头的值 (通常是 "websocket")
+        proxy_set_header Upgrade $http_upgrade;
+
+        # Connection: 连接升级
+        # "upgrade": 告诉代理服务器这是一个协议升级请求
+        proxy_set_header Connection "upgrade";
+
+        # ============================================
+        # 标准代理请求头
+        # ============================================
+
+        # Host: 保留原始请求的 Host 头
+        proxy_set_header Host $host;
+
+        # X-Real-IP: 客户端真实 IP 地址
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # X-Forwarded-For: 代理链中的所有 IP 地址
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # X-Forwarded-Proto: 原始请求的协议 (wss/ws)
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # ============================================
+        # WebSocket 超时配置
+        # ============================================
+        # WebSocket 是长连接,超时时间需要设置得很长
+        # 设置为 7 天,防止连接被意外断开
+        # ============================================
+
+        # 与后端建立连接的超时时间
+        proxy_connect_timeout 7d;
+
+        # 向后端发送数据的超时时间
+        proxy_send_timeout 7d;
+
+        # 从后端读取数据的超时时间
+        # 这是最重要的配置,决定了 WebSocket 连接的最大存活时间
+        proxy_read_timeout 7d;
+    }
+
+
+    # ============================================
+    # 健康检查端点 (可选)
+    # ============================================
+    # 功能: 提供一个简单的健康检查端点
+    # 用途: 负载均衡器或监控系统可以通过此端点检查服务状态
+    # ============================================
+    location /health {
+        # 不记录健康检查请求到访问日志
+        # 避免日志文件被大量无意义的日志填满
+        access_log off;
+
+        # 直接返回 200 OK 响应
+        return 200 "OK\n";
+
+        # 设置响应的 Content-Type 为纯文本
+        add_header Content-Type text/plain;
+    }
+}
+
+
+# ============================================
+# 性能调优建议 (可选配置)
+# ============================================
+# 以下配置可以根据服务器性能和流量进行调整
+# 取消注释以启用
+# ============================================
+
+# ====================================
+# Worker 进程配置
+# ====================================
+# worker_processes auto;  # 自动根据 CPU 核心数设置工作进程数
+# worker_connections 1024; # 每个工作进程的最大连接数
+
+# ====================================
+# 文件上传限制
+# ====================================
+# client_max_body_size 10M; # 最大请求体大小 (适用于文件上传)
+
+# ====================================
+# 缓冲区配置
+# ====================================
+# client_body_buffer_size 128k;   # 请求体缓冲区大小
+# client_header_buffer_size 1k;   # 请求头缓冲区大小
+# large_client_header_buffers 4 8k; # 大请求头缓冲区
+
+# ====================================
+# 日志配置
+# ====================================
+# access_log /var/log/nginx/websocket-relay-access.log; # 访问日志路径
+# error_log /var/log/nginx/websocket-relay-error.log warn; # 错误日志路径和级别
+
+# ====================================
+# 限流配置 (防止 DDoS)
+# ====================================
+# limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s; # 定义限流区域
+# location /api/ {
+#     limit_req zone=api_limit burst=20 nodelay; # 应用限流规则
+#     ...
+# }

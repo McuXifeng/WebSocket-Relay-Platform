@@ -157,4 +157,50 @@
 6. 文档页面使用 Ant Design Typography 组件渲染 markdown 内容
 7. 代码示例使用代码高亮（可选，使用 `react-syntax-highlighter`）
 
+## Story 3.9: 端点详情页移动端适配和实时消息统计优化
+
+**As a** 用户,
+**I want** 在移动设备上流畅地查看端点列表和详情页，并看到更清晰的实时消息统计数据,
+**so that** 我可以随时随地通过手机监控我的 WebSocket 端点运行状态。
+
+**Acceptance Criteria:**
+
+1. **端点列表移动端响应式优化** - 在小屏幕设备(<768px)上，端点列表卡片垂直排列，表格视图转换为卡片视图
+2. **端点详情页移动端布局优化** - 详情页在小屏幕上使用单列布局，Descriptions 组件设置 `column={1}`
+3. **实时消息统计数据展示增强** - 添加"消息速率"指标(消息数/分钟)，使用徽章显示在线状态
+4. **响应式断点测试** - 在 Desktop (≥1200px)、Tablet (768px-1199px)、Mobile (<768px) 三种尺寸测试
+5. **性能和用户体验** - 统计数据轮询保持5秒，使用 Skeleton 占位符，所有操作提供视觉反馈
+
+## Story 3.10: 历史消息存储和展示功能
+
+**As a** 用户,
+**I want** 查看端点的历史消息记录(最新50条),
+**so that** 我可以回溯最近的通信内容，方便调试和监控。
+
+**Acceptance Criteria:**
+
+1. **数据库 Schema 变更** - 创建 `Message` 表存储历史消息，字段包含 id, endpoint_id, content, sender_info, created_at
+2. **WebSocket 服务器消息存储** - 在消息转发逻辑中添加异步存储功能，消息内容最大 5000 字符
+3. **消息自动清理机制** - 保持每个端点最多 50 条消息，按 created_at 降序保留最新记录
+4. **获取历史消息 API** - 实现 `GET /api/endpoints/:id/messages` 接口，返回最新 50 条消息
+5. **前端历史消息展示** - 在端点详情页添加"历史消息"卡片，使用 List 或 Timeline 组件展示
+6. **性能和用户体验** - 历史消息加载使用 Skeleton 占位符，消息存储不影响 WebSocket 转发性能
+
+## Story 3.11: 连接设备管理和自定义名称永久化
+
+**As a** 用户,
+**I want** 查看当前连接到端点的所有设备,并为每个设备设置自定义名称(断开重连后保持),
+**so that** 我可以清楚地识别和管理不同的客户端连接。
+
+**Acceptance Criteria:**
+
+1. **数据库 Schema 变更** - 创建 `Device` 表存储设备信息，字段包含 id, endpoint_id, device_id, custom_name, last_connected_at
+2. **WebSocket 协议扩展** - 客户端连接时发送设备标识消息 `{ type: 'identify', deviceId: 'uuid' }`，服务器响应确认
+3. **设备连接状态管理** - 在内存 Map 中维护设备到 WebSocket 的映射，根据 last_connected_at 判断在线状态(30秒内)
+4. **获取设备列表 API** - 实现 `GET /api/endpoints/:id/devices` 接口，返回设备列表及在线状态
+5. **更新设备名称 API** - 实现 `PUT /api/endpoints/:endpointId/devices/:deviceId` 接口，更新设备自定义名称
+6. **前端设备列表展示** - 在端点详情页添加"连接设备"卡片，使用 Table 展示设备列表，支持内联编辑名称
+7. **客户端 SDK 集成指南** - 更新 `docs/websocket-usage.md` 文档，添加设备标识章节和示例代码
+8. **性能和用户体验** - 设备列表支持定时刷新(每 10 秒)，在线状态实时更新，名称编辑提供即时反馈
+
 ---

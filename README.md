@@ -197,14 +197,197 @@ chore: 构建/工具相关
 - 前后端统一导入共享类型
 - 禁止使用 `any` 类型（除非特殊情况）
 
+## 生产环境部署
+
+### 前置要求
+
+在生产环境部署前，请确保已安装以下软件：
+
+- Node.js 20.x LTS 或更高版本
+- pnpm 8.x 或更高版本
+- MySQL 8.0 或更高版本
+- **PM2** - Node.js 进程管理器
+
+#### 安装 PM2
+
+```bash
+npm install -g pm2
+```
+
+### 部署步骤
+
+#### 1. 配置生产环境变量
+
+复制 `.env.production` 示例文件并修改为实际的生产配置：
+
+```bash
+cp .env.production .env
+```
+
+**重要配置项：**
+
+- `DATABASE_URL` - 生产数据库连接字符串
+- `JWT_SECRET` - 强随机密钥（至少 32 字符，使用以下命令生成）:
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+- `ALLOWED_ORIGINS` - 生产域名（HTTPS）
+- `WS_BASE_URL` - 生产 WebSocket URL（使用 WSS 协议）
+- `LOG_LEVEL=info` - 生产环境日志级别
+
+#### 2. 构建项目
+
+```bash
+pnpm install
+pnpm build
+```
+
+这将构建：
+
+- `packages/shared` - 共享类型库
+- `packages/frontend` - 前端静态资源（输出到 `packages/frontend/dist/`）
+- `packages/backend` - 后端 JavaScript 文件（输出到 `packages/backend/dist/`）
+
+#### 3. 运行数据库迁移
+
+```bash
+pnpm --filter backend prisma:migrate
+```
+
+#### 4. 启动 PM2 进程
+
+```bash
+pnpm start:prod
+```
+
+这将启动两个独立的进程：
+
+- `api-server` - Express REST API（端口 3000）
+- `ws-server` - WebSocket 服务器（端口 3001）
+
+### PM2 进程管理
+
+#### 查看进程状态
+
+```bash
+# 查看进程列表
+pnpm status:prod
+
+# 或直接使用 PM2 命令
+pm2 status
+```
+
+#### 查看日志
+
+```bash
+# 查看实时日志
+pnpm logs:prod
+
+# 或使用 PM2 命令
+pm2 logs
+
+# 查看特定进程日志
+pm2 logs api-server
+pm2 logs ws-server
+```
+
+#### 重启服务
+
+```bash
+# 重启所有进程
+pnpm restart:prod
+
+# 或使用 PM2 命令
+pm2 restart all
+
+# 重启特定进程
+pm2 restart api-server
+pm2 restart ws-server
+```
+
+#### 停止服务
+
+```bash
+# 停止所有进程
+pnpm stop:prod
+
+# 或使用 PM2 命令
+pm2 stop all
+
+# 停止特定进程
+pm2 stop api-server
+pm2 stop ws-server
+```
+
+#### 查看详细监控
+
+```bash
+# 实时监控（CPU、内存使用情况）
+pm2 monit
+
+# 查看进程详细信息
+pm2 info api-server
+pm2 info ws-server
+```
+
+### 日志文件
+
+PM2 会将日志输出到 `logs/` 目录：
+
+- `logs/api-error.log` - API 服务器错误日志
+- `logs/api-out.log` - API 服务器输出日志
+- `logs/ws-error.log` - WebSocket 服务器错误日志
+- `logs/ws-out.log` - WebSocket 服务器输出日志
+
+### 自动化部署脚本
+
+项目提供了自动化部署脚本 `infrastructure/scripts/deploy.sh`，包含以下步骤：
+
+1. 拉取最新代码
+2. 安装依赖
+3. 运行数据库迁移
+4. 构建项目
+5. 重启 PM2 进程
+
+使用方法：
+
+```bash
+./infrastructure/scripts/deploy.sh
+```
+
+### 进程配置
+
+PM2 配置文件位于 `infrastructure/pm2/ecosystem.config.js`，包含以下关键配置：
+
+- **实例数量**: 1（单实例，fork 模式）
+- **内存限制**: 500MB（超过后自动重启）
+- **自动重启**: 异常退出时自动重启
+- **日志管理**: 分离的错误日志和输出日志
+
+### 安全建议
+
+1. **环境变量安全**：
+   - 不要将 `.env` 文件提交到版本控制
+   - 生产环境的 `JWT_SECRET` 必须使用强随机字符串
+   - 数据库密码使用强密码
+
+2. **HTTPS/WSS**：
+   - 生产环境必须使用 HTTPS 和 WSS 协议
+   - 建议使用 Nginx 作为反向代理
+   - 使用 Let's Encrypt 提供免费的 SSL 证书
+
+3. **防火墙配置**：
+   - 仅开放必要的端口（如 80, 443）
+   - 数据库端口（3306）仅允许本地访问
+
 ## 文档
 
 更多详细文档请查看 `docs/` 目录：
 
-- 架构设计文档
-- API 接口文档
-- 数据库设计文档
-- 部署指南
+- 📐 **[架构设计文档](docs/architecture/)** - 系统架构、技术栈、设计决策
+- 📝 **[PRD 文档](docs/prd/)** - 产品需求文档
+- 🗄️ **[数据库设计](docs/architecture/database-schema.md)** - 数据库结构和表设计
+- 🚀 **[生产环境部署指南](docs/deployment.md)** - 完整的生产环境部署文档，包括 Nginx 配置、SSL 证书、PM2 管理等
 
 ## 许可证
 
