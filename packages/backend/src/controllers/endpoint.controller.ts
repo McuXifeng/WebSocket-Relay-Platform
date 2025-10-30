@@ -7,6 +7,10 @@ import type { Request, Response, NextFunction } from 'express';
 import * as endpointService from '../services/endpoint.service.js';
 import * as statsService from '../services/stats.service.js';
 import * as messageService from '../services/message.service.js';
+import {
+  getLatestDeviceData,
+  getDeviceDataKeys,
+} from '../services/device-data.service.js';
 import { AppError } from '../middleware/error-handler.middleware.js';
 import { PrismaClient } from '@prisma/client';
 import type {
@@ -496,6 +500,139 @@ export async function updateDeviceName(
     });
   } catch (error) {
     // 将错误传递给错误处理中间件
+    next(error);
+  }
+}
+
+/**
+ * 获取设备最新数据 (Epic 6 新增)
+ *
+ * @route GET /api/endpoints/:endpointId/devices/:deviceId/data
+ * @param req - Express 请求对象
+ * @param res - Express 响应对象
+ * @param next - Express 下一个中间件函数
+ */
+export async function getDeviceData(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('UNAUTHORIZED', '用户认证信息无效', 401);
+    }
+
+    const { endpointId, deviceId } = req.params;
+
+    // 验证端点存在且属于当前用户
+    const prisma = new PrismaClient();
+    const endpoint = await prisma.endpoint.findFirst({
+      where: {
+        id: endpointId,
+        user_id: userId,
+      },
+    });
+
+    if (!endpoint) {
+      throw new AppError('NOT_FOUND', '端点不存在或不属于当前用户', 404);
+    }
+
+    // 验证设备存在且关联到该端点
+    const device = await prisma.device.findFirst({
+      where: {
+        id: deviceId,
+        endpoint_id: endpointId,
+      },
+    });
+
+    if (!device) {
+      throw new AppError('NOT_FOUND', '设备不存在或不属于该端点', 404);
+    }
+
+    // 获取设备最新数据
+    const latestData = await getLatestDeviceData(deviceId);
+
+    res.status(200).json({
+      deviceId: device.id,
+      deviceName: device.custom_name,
+      lastUpdate: latestData.length > 0 ? latestData[0].timestamp.toISOString() : null,
+      data: latestData.map((item) => ({
+        key: item.key,
+        value: item.value,
+        type: item.type,
+        unit: item.unit,
+        timestamp: item.timestamp.toISOString(),
+      })),
+    });
+
+    await prisma.$disconnect();
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 获取设备可用数据字段列表 (Epic 6 新增)
+ *
+ * @route GET /api/endpoints/:endpointId/devices/:deviceId/data-keys
+ * @param req - Express 请求对象
+ * @param res - Express 响应对象
+ * @param next - Express 下一个中间件函数
+ */
+export async function getDeviceDataKeysHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('UNAUTHORIZED', '用户认证信息无效', 401);
+    }
+
+    const { endpointId, deviceId } = req.params;
+
+    // 验证端点存在且属于当前用户
+    const prisma = new PrismaClient();
+    const endpoint = await prisma.endpoint.findFirst({
+      where: {
+        id: endpointId,
+        user_id: userId,
+      },
+    });
+
+    if (!endpoint) {
+      throw new AppError('NOT_FOUND', '端点不存在或不属于当前用户', 404);
+    }
+
+    // 验证设备存在且关联到该端点
+    const device = await prisma.device.findFirst({
+      where: {
+        id: deviceId,
+        endpoint_id: endpointId,
+      },
+    });
+
+    if (!device) {
+      throw new AppError('NOT_FOUND', '设备不存在或不属于该端点', 404);
+    }
+
+    // 获取设备可用数据字段列表
+    const dataKeys = await getDeviceDataKeys(deviceId);
+
+    res.status(200).json({
+      deviceId: device.id,
+      dataKeys: dataKeys.map((item) => ({
+        key: item.key,
+        type: item.type,
+        unit: item.unit,
+        lastSeen: item.lastSeen.toISOString(),
+      })),
+    });
+
+    await prisma.$disconnect();
+  } catch (error) {
     next(error);
   }
 }

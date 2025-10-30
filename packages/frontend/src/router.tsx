@@ -7,6 +7,7 @@ import EndpointDetailPage from './pages/EndpointDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import UserGuidePage from './pages/UserGuidePage';
 import DeveloperGuidePage from './pages/DeveloperGuidePage';
+import VisualizationDashboardPage from './pages/VisualizationDashboardPage';
 import InviteCodesPage from './pages/admin/InviteCodesPage';
 import UsersPage from './pages/admin/UsersPage';
 import AdminUserEndpointsPage from './pages/admin/AdminUserEndpointsPage';
@@ -75,6 +76,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <DeveloperGuidePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'visualization',
+        element: (
+          <ProtectedRoute>
+            <VisualizationDashboardPage />
           </ProtectedRoute>
         ),
       },

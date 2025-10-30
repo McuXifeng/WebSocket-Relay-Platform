@@ -4,6 +4,7 @@ import healthRouter from './routes/health.route.js';
 import authRouter from './routes/auth.route.js';
 import endpointRouter from './routes/endpoint.route.js';
 import adminRouter from './routes/admin.route.js';
+import visualizationRouter from './routes/visualization.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.middleware.js';
 import { config } from './config/env.js';
 
@@ -41,6 +42,9 @@ function createApp(): Express {
 
   // 挂载管理员路由到 /api/admin 前缀下
   app.use('/api/admin', adminRouter);
+
+  // 挂载可视化路由到 /api/visualization 前缀下 (Epic 6 新增)
+  app.use('/api/visualization', visualizationRouter);
 
   // 404 Not Found 处理（必须在所有路由之后，错误处理之前）
   app.use(notFoundHandler);

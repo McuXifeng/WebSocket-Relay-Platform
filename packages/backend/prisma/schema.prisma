@@ -32,6 +32,7 @@ model User {
   endpoints            Endpoint[]
   created_invite_codes InviteCode[] @relation("CreatedBy")
   used_invite_code     InviteCode?  @relation("UsedBy")
+  visualizationCards   VisualizationCard[]
 
   @@index([username])
   @@index([email])
@@ -68,10 +69,11 @@ model Endpoint {
   created_at      DateTime       @default(now())
   last_active_at  DateTime?
 
-  user     User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  stats    EndpointStats?
-  messages Message[]
-  devices  Device[]
+  user               User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  stats              EndpointStats?
+  messages           Message[]
+  devices            Device[]
+  visualizationCards VisualizationCard[]
 
   @@index([endpoint_id])
   @@index([user_id])
@@ -116,10 +118,51 @@ model Device {
   last_connected_at DateTime @default(now())
   created_at        DateTime @default(now())
 
-  endpoint Endpoint @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+  endpoint           Endpoint            @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+  data               DeviceData[]
+  visualizationCards VisualizationCard[]
 
   @@unique([endpoint_id, device_id])
   @@index([endpoint_id])
   @@index([device_id])
   @@map("devices")
+}
+
+// DeviceData 模型 (Epic 6 新增)
+model DeviceData {
+  id         String   @id @default(uuid())
+  device_id  String
+  data_key   String   @db.VarChar(100)
+  data_value String   @db.Text
+  data_type  String   @db.VarChar(20)
+  unit       String?  @db.VarChar(20)
+  timestamp  DateTime @default(now())
+
+  device Device @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
+  @@index([device_id, data_key, timestamp])
+  @@map("device_data")
+}
+
+// VisualizationCard 模型 (Epic 6 新增)
+model VisualizationCard {
+  id          String   @id @default(uuid())
+  user_id     String
+  endpoint_id String?
+  device_id   String?
+  card_type   String   @db.VarChar(50)
+  data_key    String?  @db.VarChar(100)
+  title       String   @db.VarChar(100)
+  config      String   @db.Text
+  position    String   @db.Text
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  endpoint Endpoint? @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+  device   Device?   @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([endpoint_id, device_id])
+  @@map("visualization_cards")
 }

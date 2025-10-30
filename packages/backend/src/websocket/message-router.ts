@@ -8,6 +8,11 @@ import { WebSocket } from 'ws';
 import { connectionManager } from './connection-manager';
 import { updateEndpointStats } from '../services/stats.service';
 import { saveMessageAsync } from '../services/message.service';
+import {
+  parseDeviceData,
+  saveDeviceDataAsync,
+  DeviceDataMessage,
+} from '../services/device-data.service';
 import { nanoid } from 'nanoid';
 import { PrismaClient } from '@prisma/client';
 
@@ -19,7 +24,8 @@ const prisma = new PrismaClient();
  */
 interface ExtendedWebSocket extends WebSocket {
   connectionId?: string;
-  deviceId?: string; // 设备唯一标识
+  deviceId?: string; // 设备唯一标识（device_id字段，如"micu"）
+  dbDeviceId?: string; // 设备数据库主键ID（Device表的id字段，UUID格式）
   customName?: string; // 设备自定义名称
 }
 
@@ -195,7 +201,71 @@ export async function broadcastToEndpoint(
     console.error('消息存储失败:', err);
   });
 
-  // 5. 遍历所有连接,排除发送者
+  // 5. 异步数据解析和存储 (Epic 6 新增，不阻塞消息转发)
+  const extSocket = senderSocket as ExtendedWebSocket;
+  console.log('🔍 检查设备ID:', {
+    hasDeviceId: !!extSocket.deviceId,
+    deviceId: extSocket.deviceId,
+    messageType: typeof message,
+  });
+  if (extSocket.deviceId) {
+    // 尝试解析消息（可能是字符串或对象）
+    let parsedMessage: Record<string, unknown> | null = null;
+
+    if (typeof message === 'object' && message !== null) {
+      // 如果消息已经是对象，直接使用
+      parsedMessage = message as Record<string, unknown>;
+    } else if (typeof message === 'string') {
+      // 如果消息是字符串，尝试解析 JSON
+      try {
+        const parsed = JSON.parse(message) as unknown;
+        if (typeof parsed === 'object' && parsed !== null) {
+          parsedMessage = parsed as Record<string, unknown>;
+        }
+      } catch {
+        // JSON 解析失败，忽略
+      }
+    }
+
+    // 检查是否为数据消息
+    if (
+      parsedMessage &&
+      parsedMessage.type === 'data' &&
+      parsedMessage.data &&
+      typeof parsedMessage.data === 'object'
+    ) {
+      // 构造 DeviceDataMessage
+      const deviceDataMsg: DeviceDataMessage = {
+        type: 'data',
+        deviceId: extSocket.deviceId,
+        timestamp:
+          typeof parsedMessage.timestamp === 'number'
+            ? parsedMessage.timestamp
+            : undefined,
+        data: parsedMessage.data as Record<string, unknown>,
+      };
+
+      // 异步解析和存储数据（不使用 await，让数据解析在后台执行）
+      void (async () => {
+        try {
+          console.log('🔍 开始解析设备数据:', {
+            deviceId: extSocket.deviceId,
+            data: deviceDataMsg.data,
+          });
+          const parsedData = parseDeviceData(deviceDataMsg);
+          console.log('✅ 数据解析成功，共', parsedData.length, '个字段');
+          // 使用 dbDeviceId (数据库主键UUID) 而不是 deviceId (设备标识符)
+          await saveDeviceDataAsync(extSocket.dbDeviceId!, parsedData);
+          console.log('💾 数据保存成功');
+        } catch (error) {
+          console.error('❌ 数据解析失败:', error);
+          // 记录错误但不影响消息转发
+        }
+      })();
+    }
+  }
+
+  // 6. 遍历所有连接,排除发送者
   connections.forEach((socket) => {
     // 排除发送者本身,确保不回显消息
     if (socket !== senderSocket) {
@@ -212,6 +282,6 @@ export async function broadcastToEndpoint(
     }
   });
 
-  // 6. 更新统计数据: 递增消息数和更新 last_active_at
+  // 7. 更新统计数据: 递增消息数和更新 last_active_at
   await updateEndpointStats(dbEndpointId, 'message');
 }

@@ -92,4 +92,28 @@ router.put(
   endpointController.updateDeviceName as RequestHandler
 );
 
+/**
+ * GET /:endpointId/devices/:deviceId/data
+ * 获取设备最新数据（需要认证）
+ * 应用 JWT 认证中间件保护路由
+ * Story 6.1: IoT数据可视化MVP版本 - 自定义Dashboard配置
+ */
+router.get(
+  '/:endpointId/devices/:deviceId/data',
+  authenticateToken,
+  endpointController.getDeviceData as RequestHandler
+);
+
+/**
+ * GET /:endpointId/devices/:deviceId/data-keys
+ * 获取设备可用数据字段列表（需要认证）
+ * 应用 JWT 认证中间件保护路由
+ * Story 6.1: IoT数据可视化MVP版本 - 自定义Dashboard配置
+ */
+router.get(
+  '/:endpointId/devices/:deviceId/data-keys',
+  authenticateToken,
+  endpointController.getDeviceDataKeysHandler as RequestHandler
+);
+
 export default router;

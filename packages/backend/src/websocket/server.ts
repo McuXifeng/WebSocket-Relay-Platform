@@ -9,7 +9,8 @@ import { broadcastToEndpoint } from './message-router';
 interface ExtendedWebSocket extends WebSocket {
   endpointId?: string;
   endpoint?: Endpoint;
-  deviceId?: string; // 设备唯一标识
+  deviceId?: string; // 设备唯一标识（device_id字段，如"micu"）
+  dbDeviceId?: string; // 设备数据库主键ID（Device表的id字段，UUID格式）
   customName?: string; // 设备自定义名称
   isCleanedUp?: boolean; // 标记是否已清理，防止重复清理
   isAlive?: boolean; // 心跳检测标志
@@ -33,8 +34,15 @@ async function handleIdentify(
   const endpointId = socket.endpointId;
   const endpoint = socket.endpoint;
 
+  console.log('🔍 [handleIdentify] 收到标识消息:', {
+    deviceId,
+    deviceName,
+    endpointId,
+    hasEndpoint: !!endpoint,
+  });
+
   if (!endpointId || !endpoint) {
-    console.error('Identify message received from socket without endpointId or endpoint');
+    console.error('❌ [handleIdentify] socket没有endpointId或endpoint');
     return;
   }
 
@@ -60,7 +68,13 @@ async function handleIdentify(
 
     // 存储设备信息到 socket 对象
     socket.deviceId = deviceId;
+    socket.dbDeviceId = device.id; // 保存数据库主键ID，用于设备数据存储
     socket.customName = device.custom_name;
+    console.log('✅ [handleIdentify] 设备标识成功:', {
+      socketDeviceId: socket.deviceId,
+      dbDeviceId: device.id,
+      savedToSocket: { deviceId: socket.deviceId, dbDeviceId: socket.dbDeviceId },
+    });
 
     // 响应确认消息
     socket.send(

@@ -1,6 +1,6 @@
 # Epic 6: IoT 设备数据可视化平台 - Brownfield Enhancement
 
-**Epic 目标：** 构建完整的IoT设备数据可视化平台，实现设备数据的采集、解析、存储和可视化展示。提供设备数据实时监控、历史数据查询、数据导出、设备控制等功能，对标主流物联网云平台（如阿里云IoT、腾讯云IoT、AWS IoT）的核心可视化能力。此 Epic 完成后，平台将从单纯的消息中继服务升级为功能完整的IoT数据管理平台，支持设备数据的全生命周期管理。
+**Epic 目标：** 构建完整的IoT设备数据可视化平台，实现设备数据的采集、解析、存储和**用户自定义可视化Dashboard**。提供**自定义卡片配置**、设备数据实时监控、历史数据查询、数据导出、设备控制等功能，对标主流物联网云平台（如阿里云IoT、腾讯云IoT、AWS IoT）的**自定义可视化大屏**能力。此 Epic 完成后，平台将从单纯的消息中继服务升级为功能完整的IoT数据管理平台，**用户可以灵活配置自己的监控Dashboard，选择性展示关注的设备数据**。
 
 ---
 
@@ -35,6 +35,7 @@
 
   1. **数据模型扩展（Story 6.1）:**
      - 新增 `DeviceData` 数据表，存储设备上报的结构化数据
+     - 新增 `VisualizationCard` 数据表，存储用户自定义的可视化卡片配置
      - 支持多种数据类型：数值（number）、字符串（string）、布尔（boolean）、JSON对象
      - 数据记录关联设备ID、时间戳、数据键值对
 
@@ -44,11 +45,20 @@
      - **不影响消息转发**：数据解析为异步操作，与消息转发逻辑解耦
      - 支持设备数据协议定义（灵活的JSON Schema）
 
-  3. **数值量可视化展示（Story 6.1 - MVP版本）:**
-     - 在端点详情页添加"设备数据"Tab页
-     - 展示所有已识别设备的最新数据（数值卡片形式）
+  3. **用户自定义Dashboard配置（Story 6.1 - MVP核心功能）:** ⭐
+     - 用户可以**主动创建可视化卡片**（而非自动展示所有数据）
+     - 支持选择**绑定设备**和**数据字段**（如：温度卡片绑定设备A的temperature字段）
+     - 支持**卡片类型选择**：数值卡片、仪表盘、状态指示器等
+     - 支持**拖拽布局**：用户可以自由调整卡片位置和大小
+     - 支持**卡片配置编辑**：修改标题、单位、颜色、阈值告警等
+     - 卡片配置**持久化存储**：用户每次登录看到的是自己配置的Dashboard
+
+  4. **数值量可视化展示（Story 6.1 - MVP版本）:**
+     - 新增独立的"数据可视化"页面（Dashboard页面）
+     - 展示用户配置的卡片（数值卡片形式）
      - 支持数据单位配置（°C、%、V、A等）
      - 实时更新（WebSocket推送或定时刷新）
+     - 支持卡片的添加、编辑、删除、拖拽操作
 
   4. **实时数据流图表可视化（Story 6.2 - 未来）:**
      - 折线图展示数值型数据的时间序列
@@ -69,15 +79,22 @@
 - **How it integrates:**
   - 数据解析逻辑集成到 `message-router.ts` 的异步存储流程中
   - 新增 `device-data.service.ts` 处理数据解析和存储
-  - 新增 REST API 端点获取设备数据（`GET /api/endpoints/:id/device-data`）
-  - 前端在端点详情页添加新的Tab页展示设备数据
-  - 使用 ECharts 或 Ant Design Charts 进行数据可视化
+  - 新增 `visualization-card.service.ts` 处理用户卡片配置的CRUD操作
+  - 新增 REST API 端点：
+    - 卡片管理：`POST/GET/PUT/DELETE /api/visualization/cards`
+    - 获取设备数据：`GET /api/endpoints/:id/devices/:deviceId/data`
+  - 前端新增独立的"数据可视化"页面（`/visualization` 路由）
+  - 使用 `react-grid-layout` 实现拖拽布局
+  - 使用 Ant Design Statistic/Card 组件展示数据卡片
 
 - **Success criteria:**
   - 设备上报的JSON数据能够被正确解析并存储到数据库
   - 数据解析和存储不影响消息转发的性能和延迟
-  - 端点详情页能够展示所有设备的最新数据（数值卡片）
-  - 用户可以实时查看设备数据变化
+  - **用户能够创建、编辑、删除自定义可视化卡片** ⭐
+  - **卡片能够正确绑定设备和数据字段，并实时展示数据** ⭐
+  - **卡片配置能够持久化存储，用户刷新页面后配置保留** ⭐
+  - **支持拖拽调整卡片位置和大小** ⭐
+  - 用户可以实时查看设备数据变化（< 5秒延迟）
   - 数据历史查询和导出功能满足数据分析需求（未来）
   - 设备控制指令能够成功下发并执行（未来）
 
@@ -85,28 +102,84 @@
 
 ## Stories
 
-### Story 6.1: IoT数据可视化MVP版本 - 数值量展示 ⭐ **当前优先级**
+### Story 6.1: IoT数据可视化MVP版本 - 自定义Dashboard配置 ⭐ **当前优先级**
 
-**目标：** 实现IoT设备数据的基础可视化功能，包括数据模型扩展、JSON数据解析存储、前端数值卡片展示。
+**目标：** 实现IoT设备数据的**用户自定义可视化Dashboard**，包括数据模型扩展、JSON数据解析存储、**用户卡片配置管理**、前端拖拽式Dashboard展示。对标阿里云IoT/腾讯云IoT的自定义数据可视化大屏功能。
 
-**关键实现点:**
-- **数据模型扩展：** 创建 `DeviceData` 表（包含字段：id, device_id, data_key, data_value, data_type, unit, timestamp）
-- **数据解析逻辑：** 在 `message-router.ts` 的消息存储后，异步解析JSON数据并提取设备数据字段
-- **数据协议定义：** 设备上报数据格式：`{ "type": "data", "deviceId": "xxx", "data": { "temperature": 25.5, "humidity": 60 } }`
-- **REST API：** 新增 `GET /api/endpoints/:id/devices/:deviceId/data` 获取设备最新数据
-- **前端展示：** 在端点详情页添加"设备数据"Tab，使用Ant Design Statistic卡片展示数值量
-- **实时更新：** 使用定时刷新（每5秒）或WebSocket推送更新数据
+**核心功能:**
+
+1. **数据模型扩展：**
+   - 创建 `DeviceData` 表（字段：id, device_id, data_key, data_value, data_type, unit, timestamp）
+   - 创建 `VisualizationCard` 表（字段：id, user_id, endpoint_id, device_id, card_type, data_key, title, config, position, created_at, updated_at）
+
+2. **数据采集和解析：**
+   - 在 `message-router.ts` 的消息存储后，异步解析JSON数据并提取设备数据字段
+   - 设备上报数据格式：`{ "type": "data", "deviceId": "xxx", "data": { "temperature": 25.5, "humidity": 60 } }`
+   - 数据解析异步执行，使用 `saveDeviceDataAsync()` 函数，不阻塞消息转发
+
+3. **用户自定义卡片配置（MVP核心）：** ⭐
+   - **添加卡片：** 用户点击"添加卡片"按钮，打开配置弹窗
+     - 选择卡片类型（数值卡片、仪表盘、状态指示器等）
+     - 选择绑定的端点和设备
+     - 选择要展示的数据字段（从该设备的历史数据中自动识别可用字段）
+     - 配置卡片标题、单位、颜色、阈值告警等
+   - **编辑卡片：** 点击卡片右上角的编辑按钮，修改卡片配置
+   - **删除卡片：** 点击卡片右上角的删除按钮，确认后删除
+   - **拖拽布局：** 用户可以拖拽卡片调整位置和大小，布局配置自动保存
+
+4. **前端Dashboard页面：**
+   - 新增独立的"数据可视化"页面（路由：`/visualization`）
+   - 使用 `react-grid-layout` 实现拖拽式布局
+   - 使用 Ant Design Statistic/Card 组件展示数值卡片
+   - 实时更新（定时刷新每5秒，或WebSocket推送）
+   - 响应式布局（适配不同屏幕尺寸）
+
+5. **后端API设计：**
+   - `POST /api/visualization/cards` - 创建卡片配置
+   - `GET /api/visualization/cards` - 获取用户所有卡片配置
+   - `GET /api/visualization/cards/:id` - 获取单个卡片配置
+   - `PUT /api/visualization/cards/:id` - 更新卡片配置
+   - `DELETE /api/visualization/cards/:id` - 删除卡片配置
+   - `GET /api/endpoints/:id/devices/:deviceId/data` - 获取设备最新数据
+   - `GET /api/endpoints/:id/devices/:deviceId/data-keys` - 获取设备可用的数据字段列表
 
 **技术要点:**
-- 数据解析异步执行，使用 `saveDeviceDataAsync()` 函数，不阻塞消息转发
+- 数据解析异步执行，不阻塞消息转发
 - 支持多种数据类型（number, string, boolean）
 - 自动识别数据单位（根据数据键名推断，如 "temperature" → "°C"）
+- 卡片配置存储支持JSON格式（灵活扩展）
+- 拖拽布局配置使用 `react-grid-layout` 库
+- 卡片实时数据更新使用定时轮询或WebSocket推送
+
+**用户操作流程:**
+
+```
+1. 用户访问 /visualization 页面
+2. 点击"添加卡片"按钮
+3. 选择卡片类型：数值卡片
+4. 选择端点：端点A
+5. 选择设备：设备A（自动加载该设备的可用数据字段）
+6. 选择数据字段：temperature
+7. 配置卡片：
+   - 标题：温度监控
+   - 单位：°C
+   - 阈值告警：> 30°C 显示红色
+8. 保存卡片
+9. 卡片出现在Dashboard上，显示设备A的实时温度数据
+10. 用户可以拖拽调整卡片位置和大小
+11. 用户刷新页面，配置保留
+```
 
 **验收标准:**
-- 设备上报数据后，DeviceData表中有新记录
-- 端点详情页"设备数据"Tab显示所有设备的最新数据
-- 数据卡片显示数值、单位、更新时间
-- 消息转发性能不受影响（延迟 < 100ms）
+- ✅ 设备上报数据后，DeviceData表中有新记录
+- ✅ 用户能够创建、编辑、删除可视化卡片
+- ✅ 卡片配置能够正确绑定端点、设备、数据字段
+- ✅ 卡片能够实时展示设备的最新数据（< 5秒延迟）
+- ✅ 卡片配置能够持久化存储，用户刷新页面后配置保留
+- ✅ 用户能够拖拽调整卡片位置和大小，布局配置自动保存
+- ✅ 数据卡片显示数值、单位、更新时间
+- ✅ 消息转发性能不受影响（延迟 < 100ms）
+- ✅ 支持阈值告警（数值超过阈值时卡片显示不同颜色）
 
 ---
 
@@ -208,10 +281,70 @@ model DeviceData {
   @@map("device_data")
 }
 
+// VisualizationCard 模型 - 存储用户自定义的可视化卡片配置 ⭐ 新增
+model VisualizationCard {
+  id          String   @id @default(uuid())
+  user_id     String   // 外键：关联User表
+  endpoint_id String?  // 外键：关联Endpoint表（可选，卡片可以跨端点）
+  device_id   String?  // 外键：关联Device表（可选，某些卡片类型不需要绑定设备）
+  card_type   String   @db.VarChar(50)   // 卡片类型（statistic, gauge, chart, status等）
+  data_key    String?  @db.VarChar(100)  // 数据键（如 "temperature"）
+  title       String   @db.VarChar(100)  // 卡片标题
+  config      String   @db.Text          // 卡片配置（JSON格式，包含单位、颜色、阈值等）
+  position    String   @db.Text          // 布局位置配置（JSON格式，包含x, y, w, h）
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  endpoint Endpoint? @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+  device   Device?   @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([endpoint_id, device_id])
+  @@map("visualization_cards")
+}
+
 // 扩展 Device 模型
 model Device {
   // ... 现有字段
-  data DeviceData[] // 新增：设备数据记录
+  data               DeviceData[]         // 新增：设备数据记录
+  visualizationCards VisualizationCard[]  // 新增：关联的可视化卡片
+}
+
+// 扩展 Endpoint 模型
+model Endpoint {
+  // ... 现有字段
+  visualizationCards VisualizationCard[]  // 新增：关联的可视化卡片
+}
+
+// 扩展 User 模型
+model User {
+  // ... 现有字段
+  visualizationCards VisualizationCard[]  // 新增：用户创建的可视化卡片
+}
+```
+
+**VisualizationCard.config JSON 格式示例：**
+```json
+{
+  "unit": "°C",
+  "color": "#1890ff",
+  "precision": 1,
+  "threshold": {
+    "warning": 25,
+    "danger": 30
+  },
+  "refreshInterval": 5000
+}
+```
+
+**VisualizationCard.position JSON 格式示例：**
+```json
+{
+  "x": 0,
+  "y": 0,
+  "w": 4,
+  "h": 2
 }
 ```
 
@@ -241,6 +374,88 @@ model Device {
 
 ### API Endpoints
 
+#### 可视化卡片管理 API ⭐ **新增**
+
+```typescript
+// 创建可视化卡片
+POST /api/visualization/cards
+Request: {
+  endpointId?: string;
+  deviceId?: string;
+  cardType: "statistic" | "gauge" | "chart" | "status";
+  dataKey?: string;
+  title: string;
+  config: {
+    unit?: string;
+    color?: string;
+    precision?: number;
+    threshold?: { warning: number; danger: number };
+    refreshInterval?: number;
+  };
+  position: { x: number; y: number; w: number; h: number };
+}
+Response: {
+  id: string;
+  userId: string;
+  endpointId?: string;
+  deviceId?: string;
+  cardType: string;
+  dataKey?: string;
+  title: string;
+  config: object;
+  position: object;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 获取用户所有卡片配置
+GET /api/visualization/cards
+Response: {
+  cards: [
+    { id: string; title: string; cardType: string; ... }
+  ]
+}
+
+// 获取单个卡片配置
+GET /api/visualization/cards/:cardId
+Response: {
+  id: string;
+  userId: string;
+  endpointId?: string;
+  deviceId?: string;
+  cardType: string;
+  dataKey?: string;
+  title: string;
+  config: object;
+  position: object;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 更新卡片配置
+PUT /api/visualization/cards/:cardId
+Request: {
+  title?: string;
+  config?: object;
+  position?: object;
+  // 其他可更新字段
+}
+Response: {
+  id: string;
+  userId: string;
+  // ... 更新后的完整卡片配置
+}
+
+// 删除卡片配置
+DELETE /api/visualization/cards/:cardId
+Response: {
+  success: true;
+  message: "Card deleted successfully"
+}
+```
+
+#### 设备数据 API
+
 ```typescript
 // 获取设备最新数据
 GET /api/endpoints/:endpointId/devices/:deviceId/data
@@ -251,6 +466,16 @@ Response: {
   data: [
     { key: "temperature", value: 25.5, type: "number", unit: "°C", timestamp: "2025-10-29T10:00:00Z" },
     { key: "humidity", value: 60, type: "number", unit: "%", timestamp: "2025-10-29T10:00:00Z" }
+  ]
+}
+
+// 获取设备可用的数据字段列表 ⭐ **新增**
+GET /api/endpoints/:endpointId/devices/:deviceId/data-keys
+Response: {
+  deviceId: string;
+  dataKeys: [
+    { key: "temperature", type: "number", unit: "°C", lastSeen: "2025-10-29T10:00:00Z" },
+    { key: "humidity", type: "number", unit: "%", lastSeen: "2025-10-29T10:00:00Z" }
   ]
 }
 
@@ -307,23 +532,34 @@ Response: {
 
 | Phase | Story | Priority | Estimated Effort |
 |-------|-------|----------|------------------|
-| Phase 1 (MVP) | 6.1 - 数值量展示 | ⭐ P0 | 8-12 小时 |
+| Phase 1 (MVP) | 6.1 - 自定义Dashboard配置 | ⭐ P0 | 16-20 小时 |
 | Phase 2 | 6.2 - 图表可视化 | P1 | 12-16 小时 |
 | Phase 3 | 6.3 - 数据历史查询和导出 | P1 | 8-10 小时 |
 | Phase 4 | 6.4 - 设备控制指令下发 | P2 | 12-16 小时 |
 | Phase 5 | 6.5 - 告警系统 | P2 | 10-14 小时 |
 | Phase 6 | 6.6 - 设备分组管理 | P3 | 8-12 小时 |
 
-**Total Estimated Effort:** 58-80 小时（约 2-3 个开发周期）
+**Total Estimated Effort:** 66-88 小时（约 2-3 个开发周期）
+
+**Story 6.1 工作量分解：**
+- 数据模型设计和迁移（DeviceData + VisualizationCard）：2-3 小时
+- 后端数据解析逻辑：2-3 小时
+- 后端卡片管理API（CRUD）：3-4 小时
+- 前端Dashboard页面基础框架：2-3 小时
+- 前端卡片配置界面（添加/编辑弹窗）：3-4 小时
+- 前端拖拽布局集成（react-grid-layout）：2-3 小时
+- 实时数据更新和WebSocket集成：2 小时
 
 ---
 
 ## Success Metrics
 
-- **功能完整性：** 所有MVP功能（Story 6.1）正常工作，设备数据正确展示
+- **功能完整性：** 所有MVP功能（Story 6.1）正常工作，**用户能够自定义配置Dashboard卡片**
+- **用户配置体验：** 用户能够在5分钟内完成第一个卡片的配置和展示
 - **性能指标：** 数据解析不影响消息转发延迟（< 100ms），数据存储延迟 < 500ms
-- **用户体验：** 设备数据可视化界面直观易用，数据更新及时（< 5秒）
+- **用户体验：** Dashboard界面直观易用，卡片拖拽流畅，数据更新及时（< 5秒）
 - **数据准确性：** 设备上报的数据与数据库存储的数据100%一致
+- **配置持久化：** 用户卡片配置100%正确保存，刷新页面后配置不丢失
 
 ---
 
@@ -332,13 +568,24 @@ Response: {
 | Date       | Version | Description                             | Author             |
 |------------|---------|-----------------------------------------|--------------------|
 | 2025-10-29 | 1.0     | 初始创建 Epic 6（IoT数据可视化平台）     | Sarah (PO)         |
+| 2025-10-29 | 2.0     | **重大更新**：增加用户自定义Dashboard配置功能，新增VisualizationCard数据模型，对标主流IoT云平台的自定义可视化大屏能力。Story 6.1 完全重写为"自定义Dashboard配置" | Sarah (PO) & 幽浮喵 |
 
 ---
 
 ## Next Steps
 
-1. ✅ **立即开始：** Story 6.1 - IoT数据可视化MVP版本（数值量展示）
+1. ✅ **立即开始：** Story 6.1 - IoT数据可视化MVP版本（**用户自定义Dashboard配置**）
+   - 创建详细的Story 6.1文档（story.md格式）
+   - 设计数据库迁移脚本（DeviceData + VisualizationCard表）
+   - 规划前端Dashboard页面的UI/UX设计
+   - 选择并集成拖拽布局库（推荐：react-grid-layout）
+
 2. **未来规划：** Story 6.2-6.6 根据用户反馈和业务需求优先级调整
+
+3. **技术预研（可选）：**
+   - 调研主流IoT平台的Dashboard配置界面（阿里云IoT、腾讯云IoT）
+   - 评估不同的可视化库（ECharts vs Ant Design Charts）
+   - 设计WebSocket实时数据推送方案
 
 ---
 

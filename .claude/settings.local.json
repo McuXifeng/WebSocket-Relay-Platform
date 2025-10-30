@@ -121,7 +121,17 @@
       "Bash(pnpm --filter @websocket-relay/frontend exec prettier:*)",
       "Bash(pnpm --filter @websocket-relay/backend exec prettier:*)",
       "Bash(pnpm --filter @websocket-relay/backend exec tsc:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(git describe:*)",
+      "Bash(NODE_OPTIONS=--experimental-vm-modules timeout 60 pnpm test:*)",
+      "Bash(timeout 60 pnpm:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(pnpm:*)",
+      "Bash(pkill:*)",
+      "Bash(kill:*)",
+      "Bash(\"/Users/xifeng/test/test-visualization-api.sh\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiOTMyODFkYi0xNWQ0LTQwZGQtYTkzOC02NjljM2M2ODU5OWIiLCJ1c2VybmFtZSI6ImFkbWluIiwiaXNBZG1pbiI6dHJ1ZSwiaWF0IjoxNzYxNzUyMjQ3LCJleHAiOjE3NjIzNTcwNDd9.xDirD8KvkLjNNcw6oSZCkSTIMrIg4jkdZaphSv-uYRk\")",
+      "Bash(\"/Users/xifeng/test/test-device-data-history.sh\")"
     ],
     "deny": [],
     "ask": []

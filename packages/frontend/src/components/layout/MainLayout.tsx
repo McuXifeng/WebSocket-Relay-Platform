@@ -7,6 +7,7 @@ import {
   HomeOutlined,
   SettingOutlined,
   BookOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
@@ -115,6 +116,14 @@ function MainLayout() {
       disabled: false, // Story 2.8: 启用个人资料菜单项
       onClick: () => {
         void navigate('/profile');
+      },
+    },
+    {
+      key: 'visualization',
+      icon: <BarChartOutlined />,
+      label: '数据可视化',
+      onClick: () => {
+        void navigate('/visualization');
       },
     },
     {
