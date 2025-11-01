@@ -200,9 +200,7 @@ describe('Device Data API Tests', () => {
       expect(dataKeys).toContain('status');
 
       // 验证温度数据是最新的值（25.5而不是24.0）
-      const tempData = response.body.data.find(
-        (item: any) => item.key === 'temperature'
-      );
+      const tempData = response.body.data.find((item: any) => item.key === 'temperature');
       expect(tempData.value).toBe(25.5);
       expect(tempData.type).toBe('number');
       expect(tempData.unit).toBe('°C');
@@ -216,15 +214,11 @@ describe('Device Data API Tests', () => {
 
       expect(response.status).toBe(200);
 
-      const humidityData = response.body.data.find(
-        (item: any) => item.key === 'humidity'
-      );
+      const humidityData = response.body.data.find((item: any) => item.key === 'humidity');
       expect(humidityData.value).toBe(60);
       expect(humidityData.type).toBe('number');
 
-      const statusData = response.body.data.find(
-        (item: any) => item.key === 'status'
-      );
+      const statusData = response.body.data.find((item: any) => item.key === 'status');
       expect(statusData.value).toBe('online');
       expect(statusData.type).toBe('string');
     });
@@ -267,9 +261,7 @@ describe('Device Data API Tests', () => {
   });
 
   describe('GET /api/endpoints/:endpointId/devices/:deviceId/data-keys', () => {
-    it(
-      '应该返回设备可用数据字段列表',
-      async () => {
+    it('应该返回设备可用数据字段列表', async () => {
       const response = await request(app)
         .get(`/api/endpoints/${endpointId}/devices/${deviceId}/data-keys`)
         .set('Authorization', `Bearer ${authToken}`);
@@ -285,9 +277,7 @@ describe('Device Data API Tests', () => {
       expect(keys).toContain('temperature');
       expect(keys).toContain('humidity');
       expect(keys).toContain('status');
-      },
-      10000
-    );
+    }, 10000);
 
     it('应该返回字段的类型和单位信息', async () => {
       const response = await request(app)
@@ -296,16 +286,12 @@ describe('Device Data API Tests', () => {
 
       expect(response.status).toBe(200);
 
-      const tempKey = response.body.dataKeys.find(
-        (item: any) => item.key === 'temperature'
-      );
+      const tempKey = response.body.dataKeys.find((item: any) => item.key === 'temperature');
       expect(tempKey.type).toBe('number');
       expect(tempKey.unit).toBe('°C');
       expect(tempKey).toHaveProperty('lastSeen');
 
-      const statusKey = response.body.dataKeys.find(
-        (item: any) => item.key === 'status'
-      );
+      const statusKey = response.body.dataKeys.find((item: any) => item.key === 'status');
       expect(statusKey.type).toBe('string');
       expect(statusKey.unit).toBeNull();
     });
@@ -321,9 +307,7 @@ describe('Device Data API Tests', () => {
 
     it('应该在端点不存在时返回404', async () => {
       const response = await request(app)
-        .get(
-          `/api/endpoints/non-existent-endpoint/devices/${deviceId}/data-keys`
-        )
+        .get(`/api/endpoints/non-existent-endpoint/devices/${deviceId}/data-keys`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -332,9 +316,7 @@ describe('Device Data API Tests', () => {
 
     it('应该在设备不存在时返回404', async () => {
       const response = await request(app)
-        .get(
-          `/api/endpoints/${endpointId}/devices/non-existent-device/data-keys`
-        )
+        .get(`/api/endpoints/${endpointId}/devices/non-existent-device/data-keys`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);

@@ -123,11 +123,7 @@ export async function findOneCard(id: string, userId: string) {
  * @param data 更新数据
  * @returns 更新后的卡片配置
  */
-export async function updateCard(
-  id: string,
-  userId: string,
-  data: UpdateCardDto
-) {
+export async function updateCard(id: string, userId: string, data: UpdateCardDto) {
   // 验证卡片属于用户
   const existingCard = await prisma.visualizationCard.findFirst({
     where: {

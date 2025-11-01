@@ -3,7 +3,11 @@ import { Card, Statistic, Typography, Button, Spin, Alert, Space } from 'antd';
 import { EditOutlined, DeleteOutlined, DragOutlined } from '@ant-design/icons';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { getDeviceData, type VisualizationCard, type LatestData } from '@/services/visualization.service';
+import {
+  getDeviceData,
+  type VisualizationCard,
+  type LatestData,
+} from '@/services/visualization.service';
 
 const { Text } = Typography;
 
@@ -283,7 +287,13 @@ const DataStatisticCard: React.FC<DataStatisticCardProps> = ({ card, onEdit, onD
             </div>
           </div>
         ) : error ? (
-          <Alert message="加载失败" description={error} type="error" showIcon style={{ fontSize: '12px' }} />
+          <Alert
+            message="加载失败"
+            description={error}
+            type="error"
+            showIcon
+            style={{ fontSize: '12px' }}
+          />
         ) : !data ? (
           <div style={{ textAlign: 'center', padding: '8px 0', overflow: 'auto' }}>
             <Alert

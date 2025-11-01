@@ -13,7 +13,6 @@ import {
   removeDevicesFromGroup,
 } from '@/services/device-group.service';
 import prisma from '@/config/database';
-import { AppError } from '@/middleware/error-handler.middleware';
 
 describe('device-group.service', () => {
   const TEST_USER_ID = 'test-user-device-group';
@@ -317,9 +316,7 @@ describe('device-group.service', () => {
       await deleteDeviceGroup(testGroupId, TEST_USER_ID);
 
       // 验证分组已被删除
-      await expect(getDeviceGroupById(testGroupId, TEST_USER_ID)).rejects.toThrow(
-        '设备分组不存在'
-      );
+      await expect(getDeviceGroupById(testGroupId, TEST_USER_ID)).rejects.toThrow('设备分组不存在');
     });
   });
 

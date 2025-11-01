@@ -302,11 +302,7 @@ function DeviceGroupsPage() {
       key: 'actions',
       render: (_, record) => (
         <Space size="small">
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => handleOpenEditModal(record)}
-          >
+          <Button type="text" icon={<EditOutlined />} onClick={() => handleOpenEditModal(record)}>
             编辑
           </Button>
           <Popconfirm
@@ -410,7 +406,11 @@ function DeviceGroupsPage() {
             <Input placeholder="请输入分组名称（1-50字符）" />
           </Form.Item>
 
-          <Form.Item label="描述" name="description" rules={[{ max: 200, message: '描述最多200个字符' }]}>
+          <Form.Item
+            label="描述"
+            name="description"
+            rules={[{ max: 200, message: '描述最多200个字符' }]}
+          >
             <Input.TextArea
               placeholder="请输入分组描述（可选，最多200字符）"
               rows={3}
@@ -470,7 +470,11 @@ function DeviceGroupsPage() {
             <Input placeholder="请输入分组名称（1-50字符）" />
           </Form.Item>
 
-          <Form.Item label="描述" name="description" rules={[{ max: 200, message: '描述最多200个字符' }]}>
+          <Form.Item
+            label="描述"
+            name="description"
+            rules={[{ max: 200, message: '描述最多200个字符' }]}
+          >
             <Input.TextArea
               placeholder="请输入分组描述（可选，最多200字符）"
               rows={3}

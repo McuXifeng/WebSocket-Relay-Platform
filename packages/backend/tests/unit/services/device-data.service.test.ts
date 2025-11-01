@@ -576,7 +576,7 @@ describe('device-data.service', () => {
         'max'
       );
       expect(maxResult.length).toBe(1);
-      expect(maxResult[0].value).toBeGreaterThanOrEqual(avgResult[0].value);
+      expect(maxResult[0].value as number).toBeGreaterThanOrEqual(avgResult[0].value as number);
 
       // 测试最小值
       const minResult = await getDeviceDataHistory(
@@ -588,11 +588,11 @@ describe('device-data.service', () => {
         'min'
       );
       expect(minResult.length).toBe(1);
-      expect(minResult[0].value).toBeLessThanOrEqual(avgResult[0].value);
+      expect(minResult[0].value as number).toBeLessThanOrEqual(avgResult[0].value as number);
 
       // 验证关系：最小值 <= 平均值 <= 最大值
-      expect(minResult[0].value).toBeLessThanOrEqual(avgResult[0].value);
-      expect(avgResult[0].value).toBeLessThanOrEqual(maxResult[0].value);
+      expect(minResult[0].value as number).toBeLessThanOrEqual(avgResult[0].value as number);
+      expect(avgResult[0].value as number).toBeLessThanOrEqual(maxResult[0].value as number);
     });
 
     it('默认聚合类型应为平均值（aggregateType未指定时）', async () => {

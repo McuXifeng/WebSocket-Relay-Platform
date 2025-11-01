@@ -4,13 +4,36 @@
  */
 
 import prisma from '../config/database.js';
+import { Prisma } from '@prisma/client';
 import { AppError } from '../middleware/error-handler.middleware.js';
+
+/**
+ * 数据聚合结果
+ */
+interface AggregationData {
+  data_key: string;
+  unit?: string;
+  average: number;
+  max: number;
+  min: number;
+  sample_count: number;
+}
+
+/**
+ * 分组数据聚合结果
+ */
+interface GroupDataAggregation {
+  group_id: string;
+  device_count: number;
+  last_update: string;
+  aggregations: AggregationData[];
+}
 
 /**
  * 聚合缓存 (内存Map, TTL 1分钟)
  */
 interface CacheEntry {
-  data: any;
+  data: GroupDataAggregation;
   timestamp: number;
 }
 
@@ -26,7 +49,10 @@ const CACHE_TTL = 60 * 1000; // 1分钟
  * @throws {AppError} 403 - 无权访问该设备分组
  * @throws {AppError} 404 - 设备分组不存在
  */
-export async function getGroupDataAggregation(groupId: string, userId: string) {
+export async function getGroupDataAggregation(
+  groupId: string,
+  userId: string
+): Promise<GroupDataAggregation> {
   // 验证分组所有权
   const group = await prisma.deviceGroup.findUnique({
     where: { id: groupId },
@@ -84,33 +110,25 @@ export async function getGroupDataAggregation(groupId: string, userId: string) {
   // 对每个 data_key 进行聚合（使用原生 SQL，因为 data_value 是字符串类型）
   const aggregations = await Promise.all(
     dataKeys.map(async (key) => {
-      // 构建设备ID的占位符
-      const placeholders = deviceIds.map(() => '?').join(',');
-
-      // 使用原生 SQL 查询进行聚合（将字符串转换为数值）
-      const stats = await prisma.$queryRawUnsafe<
+      // 使用 Prisma.$queryRaw 参数化查询（安全防止SQL注入）
+      const stats = await prisma.$queryRaw<
         {
           avg_value: number | null;
           max_value: number | null;
           min_value: number | null;
           count: bigint;
         }[]
-      >(
-        `
+      >`
         SELECT
           AVG(CAST(data_value AS DECIMAL(10,2))) as avg_value,
           MAX(CAST(data_value AS DECIMAL(10,2))) as max_value,
           MIN(CAST(data_value AS DECIMAL(10,2))) as min_value,
           COUNT(*) as count
         FROM device_data
-        WHERE device_id IN (${placeholders})
-          AND data_key = ?
-          AND timestamp >= ?
-      `,
-        ...deviceIds,
-        key.data_key,
-        oneDayAgo
-      );
+        WHERE device_id IN (${Prisma.join(deviceIds)})
+          AND data_key = ${key.data_key}
+          AND timestamp >= ${oneDayAgo}
+      `;
 
       if (stats.length === 0 || stats[0].count === 0n || stats[0].avg_value === null) {
         return null;

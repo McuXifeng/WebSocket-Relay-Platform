@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 
 interface DataHistoryRecord {
   timestamp: string;
-  value: number;
+  value: number | string | boolean | Record<string, unknown>;
   count?: number;
 }
 
@@ -40,13 +40,22 @@ const DataHistoryTable: React.FC<DataHistoryTableProps> = ({
       title: '数据值',
       dataIndex: 'value',
       key: 'value',
-      render: (value: number) => {
-        // 如果是整数，不显示小数点
-        if (Number.isInteger(value)) {
-          return value;
+      render: (value: number | string | boolean | Record<string, unknown>) => {
+        // 根据值的类型进行不同的渲染
+        if (typeof value === 'number') {
+          // 如果是整数，不显示小数点
+          if (Number.isInteger(value)) {
+            return value;
+          }
+          // 保留2位小数
+          return value.toFixed(2);
+        } else if (typeof value === 'boolean') {
+          return value ? '是' : '否';
+        } else if (typeof value === 'object' && value !== null) {
+          return JSON.stringify(value);
+        } else {
+          return String(value);
         }
-        // 保留2位小数
-        return value.toFixed(2);
       },
       align: 'right',
       width: 120,

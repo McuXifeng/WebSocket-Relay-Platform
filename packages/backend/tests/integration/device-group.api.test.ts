@@ -339,10 +339,7 @@ describe('Device Group API Integration Tests', () => {
           group_name: '一楼传感器',
           description: '一楼所有传感器',
           members: {
-            create: [
-              { device_id: deviceId1 },
-              { device_id: deviceId2 },
-            ],
+            create: [{ device_id: deviceId1 }, { device_id: deviceId2 }],
           },
         },
       });
@@ -467,9 +464,7 @@ describe('Device Group API Integration Tests', () => {
           endpoint_id: endpointId,
           group_name: '一楼传感器',
           members: {
-            create: [
-              { device_id: deviceId1 },
-            ],
+            create: [{ device_id: deviceId1 }],
           },
         },
       });
@@ -657,10 +652,7 @@ describe('Device Group API Integration Tests', () => {
           endpoint_id: endpointId,
           group_name: '一楼传感器',
           members: {
-            create: [
-              { device_id: deviceId1 },
-              { device_id: deviceId2 },
-            ],
+            create: [{ device_id: deviceId1 }, { device_id: deviceId2 }],
           },
         },
       });
@@ -981,12 +973,10 @@ describe('Device Group API Integration Tests', () => {
     });
 
     it('应该在未认证时返回 401 错误', async () => {
-      const response = await request(app)
-        .post(`/api/device-groups/${groupId}/control`)
-        .send({
-          command_type: 'setLight',
-          command_params: {},
-        });
+      const response = await request(app).post(`/api/device-groups/${groupId}/control`).send({
+        command_type: 'setLight',
+        command_params: {},
+      });
 
       expect(response.status).toBe(401);
     });
@@ -1060,9 +1050,7 @@ describe('Device Group API Integration Tests', () => {
     });
 
     it('应该在未认证时返回 401 错误', async () => {
-      const response = await request(app).get(
-        `/api/device-groups/${groupId}/control/${batchId}`
-      );
+      const response = await request(app).get(`/api/device-groups/${groupId}/control/${batchId}`);
 
       expect(response.status).toBe(401);
     });
@@ -1312,13 +1300,11 @@ describe('Device Group API Integration Tests', () => {
       const now = new Date();
       const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
-      const response = await request(app)
-        .get(`/api/device-groups/${groupId}/export`)
-        .query({
-          start_time: twoHoursAgo.toISOString(),
-          end_time: now.toISOString(),
-          format: 'csv',
-        });
+      const response = await request(app).get(`/api/device-groups/${groupId}/export`).query({
+        start_time: twoHoursAgo.toISOString(),
+        end_time: now.toISOString(),
+        format: 'csv',
+      });
 
       expect(response.status).toBe(401);
     });

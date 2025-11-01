@@ -29,9 +29,7 @@ import { api } from './api';
  * @param request - 创建设备分组请求
  * @returns 创建的设备分组信息
  */
-export async function createDeviceGroup(
-  request: CreateDeviceGroupRequest
-): Promise<DeviceGroup> {
+export async function createDeviceGroup(request: CreateDeviceGroupRequest): Promise<DeviceGroup> {
   // 后端返回: { data: { id, group_name, ... } }
   // api 拦截器已提取一层 data，所以这里的 response.data 就是设备分组对象
   const response = await api.post<{ data: DeviceGroup }>('/device-groups', request);
@@ -84,7 +82,9 @@ export async function updateDeviceGroup(
  */
 export async function deleteDeviceGroup(groupId: string): Promise<DeleteDeviceGroupResponse> {
   // 后端返回: { data: { success: true, message: "..." } }
-  const response = await api.delete<{ data: DeleteDeviceGroupResponse }>(`/device-groups/${groupId}`);
+  const response = await api.delete<{ data: DeleteDeviceGroupResponse }>(
+    `/device-groups/${groupId}`
+  );
   return response.data;
 }
 

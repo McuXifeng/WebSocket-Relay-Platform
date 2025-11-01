@@ -401,7 +401,10 @@ function EndpointDetailPage() {
 
             <Descriptions.Item label="端点 ID">{currentEndpoint.endpoint_id}</Descriptions.Item>
 
-            <Descriptions.Item label="转发模式" span={currentEndpoint.forwarding_mode === ForwardingMode.CUSTOM_HEADER ? 1 : 2}>
+            <Descriptions.Item
+              label="转发模式"
+              span={currentEndpoint.forwarding_mode === ForwardingMode.CUSTOM_HEADER ? 1 : 2}
+            >
               <Space>
                 {renderForwardingModeTag(currentEndpoint.forwarding_mode)}
                 <Button

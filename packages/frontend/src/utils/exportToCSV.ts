@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 
 interface DataHistoryRecord {
   timestamp: string;
-  value: number;
+  value: number | string | boolean | Record<string, unknown>;
   count?: number;
 }
 
@@ -26,11 +26,21 @@ export function exportToCSV(data: DataHistoryRecord[], options: ExportCSVOptions
 
   // 构造CSV数据
   const csvData = data.map((record) => {
+    // 格式化值为字符串或数字
+    let formattedValue: string | number;
+    if (typeof record.value === 'object' && record.value !== null) {
+      formattedValue = JSON.stringify(record.value);
+    } else if (typeof record.value === 'boolean') {
+      formattedValue = record.value ? '是' : '否';
+    } else {
+      formattedValue = record.value;
+    }
+
     const row: Record<string, string | number> = {
       时间戳: dayjs(record.timestamp).format('YYYY-MM-DD HH:mm:ss'),
       设备名称: deviceName,
       数据键: dataKey,
-      数据值: record.value,
+      数据值: formattedValue,
     };
 
     // 如果是聚合数据，添加聚合信息

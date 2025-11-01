@@ -478,11 +478,7 @@ function DeviceGroupDetailPage() {
             <div>
               <Row gutter={16} style={{ marginBottom: '16px' }}>
                 <Col span={6}>
-                  <Statistic
-                    title="设备数量"
-                    value={aggregation.device_count}
-                    suffix="个"
-                  />
+                  <Statistic title="设备数量" value={aggregation.device_count} suffix="个" />
                 </Col>
                 <Col span={6}>
                   <Statistic
@@ -566,10 +562,7 @@ function DeviceGroupDetailPage() {
             <Input placeholder="例如: reboot, reset, set_config" />
           </Form.Item>
           <Form.Item label="指令参数（JSON格式）" name="command_params">
-            <Input.TextArea
-              placeholder='例如: {"temperature": 25}'
-              rows={4}
-            />
+            <Input.TextArea placeholder='例如: {"temperature": 25}' rows={4} />
           </Form.Item>
         </Form>
 
@@ -578,10 +571,18 @@ function DeviceGroupDetailPage() {
             <Title level={5}>执行状态</Title>
             <Row gutter={16}>
               <Col span={8}>
-                <Statistic title="成功" value={batchStatus.success_count} valueStyle={{ color: '#3f8600' }} />
+                <Statistic
+                  title="成功"
+                  value={batchStatus.success_count}
+                  valueStyle={{ color: '#3f8600' }}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="失败" value={batchStatus.failed_count} valueStyle={{ color: '#cf1322' }} />
+                <Statistic
+                  title="失败"
+                  value={batchStatus.failed_count}
+                  valueStyle={{ color: '#cf1322' }}
+                />
               </Col>
               <Col span={8}>
                 <Statistic title="等待中" value={batchStatus.pending_count} />

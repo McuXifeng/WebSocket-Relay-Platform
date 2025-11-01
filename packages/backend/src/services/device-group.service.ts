@@ -233,7 +233,11 @@ export async function getDeviceGroups(params: GetDeviceGroupsParams) {
   const { userId, endpointId, search, page = 1, pageSize = 10 } = params;
 
   // 构建查询条件
-  const where: any = {
+  const where: {
+    user_id: string;
+    endpoint_id?: string;
+    group_name?: { contains: string };
+  } = {
     user_id: userId,
   };
 
@@ -481,11 +485,7 @@ export async function addDevicesToGroup(groupId: string, userId: string, deviceI
  * @throws {AppError} 403 - 无权访问该设备分组
  * @throws {AppError} 404 - 设备分组不存在
  */
-export async function removeDevicesFromGroup(
-  groupId: string,
-  userId: string,
-  deviceIds: string[]
-) {
+export async function removeDevicesFromGroup(groupId: string, userId: string, deviceIds: string[]) {
   // 验证分组所有权
   await validateGroupOwnership(groupId, userId);
 

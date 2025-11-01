@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import { PrismaClient } from '@prisma/client';
+import { nanoid } from 'nanoid';
 import * as deviceGroupDataService from '../../../src/services/device-group-data.service';
 import { AppError } from '../../../src/middleware/error-handler.middleware';
 
@@ -31,11 +32,9 @@ describe('DeviceGroupDataService', () => {
     // 创建测试端点
     const endpoint = await prisma.endpoint.create({
       data: {
-        endpoint_id: `test_endpoint_${Date.now()}`,
+        endpoint_id: nanoid(12),
         user_id: testUserId,
         name: 'Test Endpoint',
-        description: 'Test endpoint for data service tests',
-        is_active: true,
       },
     });
     testEndpointId = endpoint.id;
@@ -57,6 +56,7 @@ describe('DeviceGroupDataService', () => {
           device_id: device.id,
           data_key: 'temperature',
           data_value: String(20 + i * 5), // 20, 25, 30
+          data_type: 'number',
           unit: '°C',
           timestamp: new Date(),
         },
@@ -67,6 +67,7 @@ describe('DeviceGroupDataService', () => {
           device_id: device.id,
           data_key: 'humidity',
           data_value: String(50 + i * 10), // 50, 60, 70
+          data_type: 'number',
           unit: '%',
           timestamp: new Date(),
         },
@@ -119,10 +120,7 @@ describe('DeviceGroupDataService', () => {
 
   describe('getGroupDataAggregation', () => {
     it('应该成功获取分组数据聚合', async () => {
-      const result = await deviceGroupDataService.getGroupDataAggregation(
-        testGroupId,
-        testUserId
-      );
+      const result = await deviceGroupDataService.getGroupDataAggregation(testGroupId, testUserId);
 
       expect(result).toBeDefined();
       expect(result.group_id).toBe(testGroupId);
@@ -194,15 +192,9 @@ describe('DeviceGroupDataService', () => {
     });
 
     it('应该使用缓存（两次调用返回相同结果）', async () => {
-      const result1 = await deviceGroupDataService.getGroupDataAggregation(
-        testGroupId,
-        testUserId
-      );
+      const result1 = await deviceGroupDataService.getGroupDataAggregation(testGroupId, testUserId);
 
-      const result2 = await deviceGroupDataService.getGroupDataAggregation(
-        testGroupId,
-        testUserId
-      );
+      const result2 = await deviceGroupDataService.getGroupDataAggregation(testGroupId, testUserId);
 
       // 缓存的结果应该相同
       expect(result1.last_update).toBe(result2.last_update);

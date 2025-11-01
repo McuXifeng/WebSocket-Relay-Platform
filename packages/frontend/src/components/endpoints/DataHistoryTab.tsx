@@ -48,7 +48,7 @@ interface Device {
 
 interface DataHistoryRecord {
   timestamp: string;
-  value: number;
+  value: number | string | boolean | Record<string, unknown>;
   count?: number;
 }
 

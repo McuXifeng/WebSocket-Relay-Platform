@@ -76,7 +76,10 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
             ...config,
             timeRange: {
               type: 'custom',
-              custom: [dayjs(config.timeRange.custom.startTime), dayjs(config.timeRange.custom.endTime)],
+              custom: [
+                dayjs(config.timeRange.custom.startTime),
+                dayjs(config.timeRange.custom.endTime),
+              ],
             },
           };
         }
@@ -485,7 +488,10 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
             >
               {(fields, { add, remove }, { errors }) => (
                 <>
-                  <Form.Item label="数据源配置" tooltip="选择设备后,可以查看该设备的数据字段列表,或手动输入字段名">
+                  <Form.Item
+                    label="数据源配置"
+                    tooltip="选择设备后,可以查看该设备的数据字段列表,或手动输入字段名"
+                  >
                     {fields.map((field) => (
                       <div
                         key={field.key}
@@ -570,7 +576,12 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
 
                         <MinusCircleOutlined
                           onClick={() => remove(field.name)}
-                          style={{ fontSize: '18px', color: '#ff4d4f', cursor: 'pointer', marginTop: '8px' }}
+                          style={{
+                            fontSize: '18px',
+                            color: '#ff4d4f',
+                            cursor: 'pointer',
+                            marginTop: '8px',
+                          }}
                         />
                       </div>
                     ))}

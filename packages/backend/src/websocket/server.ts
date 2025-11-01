@@ -94,22 +94,64 @@ async function handleIdentify(
 }
 
 /**
- * 处理控制指令ACK消息（Epic 6 Story 6.4 新增）
+ * 处理控制指令ACK消息（Epic 6 Story 6.4 新增, Story 7.1 优化: commandId可选）
+ * @param message - 控制ACK消息
+ * @param dbDeviceId - 设备数据库ID（用于时间窗口匹配）
  */
-async function handleControlAck(message: {
-  commandId: string;
-  status: 'success' | 'failed';
-  message?: string;
-}): Promise<void> {
+async function handleControlAck(
+  message: {
+    commandId?: string; // commandId 现在是可选的
+    status: 'success' | 'failed';
+    message?: string;
+  },
+  dbDeviceId?: string // 设备数据库ID，用于时间窗口匹配
+): Promise<void> {
   const { commandId, status, message: responseMessage } = message;
 
   try {
+    let finalCommandId = commandId;
+
+    // 如果没有提供 commandId，通过设备ID+时间窗口匹配最近的pending指令
+    if (!finalCommandId && dbDeviceId) {
+      // eslint-disable-next-line no-console
+      console.log(`[控制ACK] commandId 不存在，尝试通过时间窗口匹配设备: ${dbDeviceId}`);
+
+      // 查询5秒内该设备的最新pending指令
+      const recentCommand = await prisma.controlCommand.findFirst({
+        where: {
+          device_id: dbDeviceId,
+          status: 'pending',
+          sent_at: {
+            gte: new Date(Date.now() - 5000), // 5秒时间窗口
+          },
+        },
+        orderBy: {
+          sent_at: 'desc', // 按发送时间降序，选择最新的
+        },
+      });
+
+      if (recentCommand) {
+        finalCommandId = recentCommand.command_id;
+        // eslint-disable-next-line no-console
+        console.log(`[控制ACK] 时间窗口匹配成功, commandId: ${finalCommandId}`);
+      } else {
+        console.error(`[控制ACK] 时间窗口匹配失败，未找到5秒内的pending指令`);
+        return; // 没有找到匹配的指令，直接返回
+      }
+    }
+
+    // 如果仍然没有 commandId，直接返回
+    if (!finalCommandId) {
+      console.error(`[控制ACK] 缺少 commandId 且无法通过时间窗口匹配`);
+      return;
+    }
+
     // 更新控制指令状态
-    await updateCommandStatus(commandId, status, responseMessage);
+    await updateCommandStatus(finalCommandId, status, responseMessage);
 
     // eslint-disable-next-line no-console
     console.log(
-      `[控制ACK] commandId: ${commandId}, status: ${status}, message: ${responseMessage || '无'}`
+      `[控制ACK] commandId: ${finalCommandId}, status: ${status}, message: ${responseMessage || '无'}`
     );
   } catch (error) {
     console.error(`[控制ACK] 处理失败, commandId: ${commandId}:`, error);
@@ -247,20 +289,23 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
             return; // 设备标识消息不进入转发流程
           }
 
-          // 检查是否为控制ACK消息（Epic 6 Story 6.4 新增）
+          // 检查是否为控制ACK消息（Epic 6 Story 6.4 新增, Story 7.1 优化: commandId可选）
           if (
             typeof parsedMessage === 'object' &&
             parsedMessage !== null &&
             'type' in parsedMessage &&
             parsedMessage.type === 'control_ack' &&
-            'commandId' in parsedMessage &&
-            typeof parsedMessage.commandId === 'string' &&
             'status' in parsedMessage &&
             (parsedMessage.status === 'success' || parsedMessage.status === 'failed')
           ) {
-            // 处理控制ACK消息
+            // 处理控制ACK消息，传递 dbDeviceId 用于时间窗口匹配
             await handleControlAck(
-              parsedMessage as { commandId: string; status: 'success' | 'failed'; message?: string }
+              parsedMessage as {
+                commandId?: string;
+                status: 'success' | 'failed';
+                message?: string;
+              },
+              socket.dbDeviceId // 传递设备数据库ID
             );
             return; // 控制ACK消息不进入转发流程
           }

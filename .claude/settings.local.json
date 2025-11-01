@@ -166,7 +166,8 @@
       "Bash(DATABASE_URL=\"mysql://root:micuadmin@localhost:33066/websocket_relay_test\" pnpm --filter @websocket-relay/backend test:unit:*)",
       "Bash(DATABASE_URL=\"mysql://root:micuadmin@localhost:33066/websocket_relay_test\" pnpm --filter @websocket-relay/backend test:*)",
       "Bash(set DATABASE_URL=mysql://root:micuadmin@localhost:33066/websocket_relay_test)",
-      "Bash(set NODE_OPTIONS=--experimental-vm-modules)"
+      "Bash(set NODE_OPTIONS=--experimental-vm-modules)",
+      "Bash(gh release create:*)"
     ],
     "deny": [],
     "ask": []

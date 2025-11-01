@@ -11,6 +11,30 @@ import * as deviceDataService from '../services/device-data.service.js';
 import { AppError } from '../middleware/error-handler.middleware.js';
 
 /**
+ * 请求体类型定义
+ */
+interface CreateDeviceGroupBody {
+  endpoint_id: string;
+  group_name: string;
+  description?: string;
+  device_ids?: string[];
+}
+
+interface UpdateDeviceGroupBody {
+  group_name?: string;
+  description?: string;
+}
+
+interface DeviceIdsBody {
+  device_ids: string[];
+}
+
+interface BatchControlBody {
+  command_type: string;
+  command_params?: Record<string, unknown>;
+}
+
+/**
  * 创建设备分组
  * @route POST /api/device-groups
  */
@@ -20,15 +44,13 @@ export async function createDeviceGroup(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
       throw new AppError('UNAUTHORIZED', '用户认证信息无效', 401);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { endpoint_id, group_name, description, device_ids } = req.body;
+    const { endpoint_id, group_name, description, device_ids } = req.body as CreateDeviceGroupBody;
 
     // 参数验证
     if (!endpoint_id || !group_name) {
@@ -37,15 +59,10 @@ export async function createDeviceGroup(
 
     // 调用 Service 层创建设备分组
     const group = await deviceGroupService.createDeviceGroup({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       userId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       endpointId: endpoint_id,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       groupName: group_name,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       description,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       deviceIds: device_ids || [],
     });
 
@@ -67,27 +84,20 @@ export async function getDeviceGroups(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
       throw new AppError('UNAUTHORIZED', '用户认证信息无效', 401);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { endpoint_id, search, page, page_size } = req.query;
 
     // 调用 Service 层查询设备分组
     const result = await deviceGroupService.getDeviceGroups({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       userId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       endpointId: endpoint_id as string | undefined,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       search: search as string | undefined,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       page: page ? parseInt(page as string, 10) : undefined,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       pageSize: page_size ? parseInt(page_size as string, 10) : undefined,
     });
 
@@ -109,7 +119,6 @@ export async function getDeviceGroupById(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -119,7 +128,6 @@ export async function getDeviceGroupById(
     const { groupId } = req.params;
 
     // 调用 Service 层查询分组详情
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const group = await deviceGroupService.getDeviceGroupById(groupId, userId);
 
     res.status(200).json({
@@ -140,7 +148,6 @@ export async function updateDeviceGroup(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -148,19 +155,14 @@ export async function updateDeviceGroup(
     }
 
     const { groupId } = req.params;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { group_name, description } = req.body;
+    const { group_name, description } = req.body as UpdateDeviceGroupBody;
 
     // 调用 Service 层更新设备分组
     const group = await deviceGroupService.updateDeviceGroup(
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       groupId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       userId,
       {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         groupName: group_name,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         description,
       }
     );
@@ -183,7 +185,6 @@ export async function deleteDeviceGroup(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -192,7 +193,6 @@ export async function deleteDeviceGroup(
 
     const { groupId } = req.params;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     await deviceGroupService.deleteDeviceGroup(groupId, userId);
 
     res.status(200).json({
@@ -216,7 +216,6 @@ export async function addDevicesToGroup(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -224,8 +223,7 @@ export async function addDevicesToGroup(
     }
 
     const { groupId } = req.params;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { device_ids } = req.body;
+    const { device_ids } = req.body as DeviceIdsBody;
 
     // 参数验证
     if (!device_ids || !Array.isArray(device_ids)) {
@@ -234,11 +232,8 @@ export async function addDevicesToGroup(
 
     // 调用 Service 层添加设备到分组
     const result = await deviceGroupService.addDevicesToGroup(
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       groupId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       userId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       device_ids
     );
 
@@ -260,7 +255,6 @@ export async function removeDevicesFromGroup(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -268,8 +262,7 @@ export async function removeDevicesFromGroup(
     }
 
     const { groupId } = req.params;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { device_ids } = req.body;
+    const { device_ids } = req.body as DeviceIdsBody;
 
     // 参数验证
     if (!device_ids || !Array.isArray(device_ids)) {
@@ -278,11 +271,8 @@ export async function removeDevicesFromGroup(
 
     // 调用 Service 层从分组移除设备
     const result = await deviceGroupService.removeDevicesFromGroup(
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       groupId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       userId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       device_ids
     );
 
@@ -304,7 +294,6 @@ export async function getGroupDataAggregation(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -314,7 +303,6 @@ export async function getGroupDataAggregation(
     const { groupId } = req.params;
 
     // 调用 Service 层获取分组数据聚合
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const aggregation = await deviceGroupDataService.getGroupDataAggregation(groupId, userId);
 
     res.status(200).json({
@@ -335,7 +323,6 @@ export async function sendBatchControl(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -343,8 +330,7 @@ export async function sendBatchControl(
     }
 
     const { groupId } = req.params;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { command_type, command_params } = req.body;
+    const { command_type, command_params } = req.body as BatchControlBody;
 
     // 参数验证
     if (!command_type) {
@@ -352,7 +338,6 @@ export async function sendBatchControl(
     }
 
     // 验证分组所有权
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const group = await deviceGroupService.getDeviceGroupById(groupId, userId);
 
     if (!group) {
@@ -361,11 +346,8 @@ export async function sendBatchControl(
 
     // 调用 Service 层批量发送控制指令
     const result = await controlCommandService.sendBatchControlCommand({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       groupId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       commandType: command_type,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       commandParams: command_params || {},
     });
 
@@ -387,7 +369,6 @@ export async function getBatchControlStatus(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -397,7 +378,6 @@ export async function getBatchControlStatus(
     const { groupId, batchId } = req.params;
 
     // 验证分组所有权
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const group = await deviceGroupService.getDeviceGroupById(groupId, userId);
 
     if (!group) {
@@ -425,7 +405,6 @@ export async function exportGroupDeviceData(
   next: NextFunction
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -433,7 +412,6 @@ export async function exportGroupDeviceData(
     }
 
     const { groupId } = req.params;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { start_time, end_time, data_keys, format, limit } = req.query;
 
     // 参数验证
@@ -448,7 +426,6 @@ export async function exportGroupDeviceData(
     }
 
     // 验证分组所有权并获取分组详情
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const group = await deviceGroupService.getDeviceGroupById(groupId, userId);
 
     if (!group) {
@@ -468,8 +445,7 @@ export async function exportGroupDeviceData(
       if (typeof data_keys === 'string') {
         dataKeysArray = data_keys.split(',').map((key) => key.trim());
       } else if (Array.isArray(data_keys)) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        dataKeysArray = data_keys;
+        dataKeysArray = data_keys as string[];
       }
     }
 

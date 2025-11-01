@@ -118,7 +118,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('应该成功返回历史数据（无聚合）', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -136,7 +138,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('应该正确应用时间范围过滤', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -151,7 +155,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('应该正确应用聚合参数（按分钟聚合）', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -171,7 +177,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('应该正确应用聚合参数（按小时聚合）', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -188,7 +196,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('应该正确应用聚合参数（按天聚合）', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -205,7 +215,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('应该正确应用limit参数', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -220,7 +232,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('处理无数据情况（返回空数组）', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'non-existent-key',
@@ -236,7 +250,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
   describe('权限验证', () => {
     it('未登录用户应该返回401错误', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .query({
           dataKey: 'temperature',
           startTime: '2025-10-29T10:00:00Z',
@@ -248,7 +264,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('其他用户不能查询不属于自己的端点数据', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${otherUserToken}`)
         .query({
           dataKey: 'temperature',
@@ -263,7 +281,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
   describe('参数验证', () => {
     it('缺少dataKey参数应该返回400错误', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           startTime: '2025-10-29T10:00:00Z',
@@ -276,7 +296,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('缺少startTime参数应该返回400错误', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -289,7 +311,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('缺少endTime参数应该返回400错误', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -302,7 +326,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('无效的aggregation参数应该返回400错误', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -317,7 +343,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('无效的时间格式应该返回400错误', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -333,7 +361,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
   describe('资源不存在', () => {
     it('端点不存在应该返回404错误', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/non-existent-endpoint/devices/${TEST_DEVICE_ID}/data/history`)
+        .get(
+          `/api/visualization/endpoints/non-existent-endpoint/devices/${TEST_DEVICE_ID}/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',
@@ -346,7 +376,9 @@ describe('GET /api/visualization/endpoints/:endpointId/devices/:deviceId/data/hi
 
     it('设备不存在应该返回404错误', async () => {
       const response = await request(app)
-        .get(`/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/non-existent-device/data/history`)
+        .get(
+          `/api/visualization/endpoints/${TEST_ENDPOINT_ID}/devices/non-existent-device/data/history`
+        )
         .set('Authorization', `Bearer ${authToken}`)
         .query({
           dataKey: 'temperature',

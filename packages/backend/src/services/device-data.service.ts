@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import logger from '../config/logger.js';
 
 const prisma = new PrismaClient();
 
@@ -35,6 +36,7 @@ export interface ParsedData {
   data_value: string;
   data_type: string;
   unit: string | null;
+  timestamp?: Date; // 可选的时间戳
 }
 
 // 最新数据接口
@@ -61,6 +63,9 @@ export interface DataKey {
  */
 export function parseDeviceData(message: DeviceDataMessage): ParsedData[] {
   const parsedData: ParsedData[] = [];
+
+  // 解析时间戳：优先使用设备提供的 timestamp，否则使用当前时间
+  const timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
 
   // 遍历 data 对象的键值对
   for (const [key, value] of Object.entries(message.data)) {
@@ -90,6 +95,7 @@ export function parseDeviceData(message: DeviceDataMessage): ParsedData[] {
       data_value: dataValue,
       data_type: dataType,
       unit,
+      timestamp, // 添加时间戳
     });
   }
 
@@ -114,7 +120,7 @@ export async function saveDeviceDataAsync(
         data_value: item.data_value,
         data_type: item.data_type,
         unit: item.unit,
-        timestamp: new Date(),
+        timestamp: item.timestamp || new Date(), // 使用 parsedData 中的 timestamp，如果不存在则使用当前时间
       })),
     });
 
@@ -232,7 +238,7 @@ function parseDataValue(
 // 历史数据记录接口
 export interface HistoryDataRecord {
   timestamp: string;
-  value: number;
+  value: number | string | boolean | Record<string, unknown>;
   count?: number; // 聚合时包含：参与聚合的原始数据点数量
 }
 
@@ -274,6 +280,31 @@ export async function getDeviceDataHistory(
     const start = new Date(startTime);
     const end = new Date(endTime);
 
+    // 首先查询该 data_key 的数据类型
+    const dataTypeRecord = await prisma.deviceData.findFirst({
+      where: {
+        device_id: deviceId,
+        data_key: dataKey,
+      },
+      select: {
+        data_type: true,
+      },
+    });
+
+    if (!dataTypeRecord) {
+      console.log(`⚠️ 未找到数据字段: ${dataKey}`);
+      return [];
+    }
+
+    const dataType = dataTypeRecord.data_type;
+
+    // 对于非数值类型，禁止聚合查询
+    if (aggregation && dataType !== 'number') {
+      throw new Error(
+        `数据字段 "${dataKey}" 的类型为 "${dataType}"，不支持聚合查询。请使用原始数据查询。`
+      );
+    }
+
     // 根据聚合参数选择查询策略
     if (!aggregation) {
       // 无聚合查询：直接查询时间范围内的所有数据点
@@ -296,9 +327,10 @@ export async function getDeviceDataHistory(
         take: limit,
       });
 
+      // 根据数据类型解析值
       return rawData.map((item) => ({
         timestamp: item.timestamp.toISOString(),
-        value: parseFloat(item.data_value),
+        value: parseDataValue(item.data_value, dataType),
       }));
     } else {
       // 聚合查询：按分钟/小时/天聚合
@@ -370,7 +402,17 @@ export async function getDeviceDataHistory(
       }));
     }
   } catch (error) {
-    console.error('❌ Failed to get device data history:', error);
+    logger.error('数据历史查询失败', {
+      deviceId,
+      dataKey,
+      startTime,
+      endTime,
+      aggregation,
+      aggregateType,
+      limit,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     throw error;
   }
 }
