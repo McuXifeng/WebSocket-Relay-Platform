@@ -27,7 +27,7 @@ export async function getAlertHistory(
     // 从查询参数获取筛选和分页条件（使用 snake_case 与前端 API 一致）
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const {
-      endpoint_id: _endpoint_id, // 保留以便将来可能使用
+      endpoint_id,
       alert_level,
       device_id,
       status,
@@ -64,7 +64,7 @@ export async function getAlertHistory(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const result = await alertHistoryService.getAlertHistory(
       userId,
-      endpointId as string | undefined,
+      endpoint_id as string | undefined,
       filter,
       pagination
     );

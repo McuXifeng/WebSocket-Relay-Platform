@@ -152,7 +152,21 @@
       "Bash(/Users/xifeng/test/test-alert-direct.sh:*)",
       "Bash(/Users/xifeng/test/test-alert-system-comprehensive.sh)",
       "Bash(/Users/xifeng/test/test-alert-with-existing-device.sh)",
-      "Bash(/Users/xifeng/test/test-alert-final.sh)"
+      "Bash(/Users/xifeng/test/test-alert-final.sh)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill /F /PID 38568)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 38568 -Force\")",
+      "Bash(taskkill:*)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 42560 -Force\")",
+      "Bash(bash:*)",
+      "Bash(DATABASE_URL=\"mysql://root:micuadmin@localhost:33066/websocket_relay_test\" npx prisma db push:*)",
+      "Bash(npx jest:*)",
+      "Bash(DATABASE_URL=\"mysql://root:micuadmin@localhost:33066/websocket_relay_test\" NODE_OPTIONS=--experimental-vm-modules pnpm exec jest:*)",
+      "Bash(DATABASE_URL=\"mysql://root:micuadmin@localhost:33066/websocket_relay_test\" pnpm --filter @websocket-relay/backend test:unit:*)",
+      "Bash(DATABASE_URL=\"mysql://root:micuadmin@localhost:33066/websocket_relay_test\" pnpm --filter @websocket-relay/backend test:*)",
+      "Bash(set DATABASE_URL=mysql://root:micuadmin@localhost:33066/websocket_relay_test)",
+      "Bash(set NODE_OPTIONS=--experimental-vm-modules)"
     ],
     "deny": [],
     "ask": []

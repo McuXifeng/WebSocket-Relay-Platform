@@ -27,6 +27,9 @@ export default {
   // 测试文件匹配模式
   testMatch: ['<rootDir>/tests/**/*.test.ts', '<rootDir>/tests/**/*.spec.ts'],
 
+  // 允许转换 node_modules 中的 ESM 模块
+  transformIgnorePatterns: ['node_modules/(?!(nanoid)/)'],
+
   // 覆盖率配置
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -56,7 +59,7 @@ export default {
   // 测试环境变量
   testEnvironmentOptions: {
     env: {
-      DATABASE_URL: 'mysql://root:password@localhost:3306/websocket_relay_test',
+      DATABASE_URL: 'mysql://root:micuadmin@localhost:33066/websocket_relay_test',
       NODE_ENV: 'test',
     },
   },

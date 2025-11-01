@@ -35,12 +35,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       <div
         style={{
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
+          gap: '16px',
         }}
       >
-        <Spin size="large" tip="加载中..." />
+        <Spin size="large" />
+        <div style={{ color: '#666' }}>加载中...</div>
       </div>
     );
   }

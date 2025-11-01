@@ -520,7 +520,10 @@ const DataHistoryTab: React.FC<DataHistoryTabProps> = ({ endpointId }) => {
       {/* 加载状态 */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <Spin size="large" tip="正在查询数据..." />
+          <Spin size="large">
+            <div style={{ minHeight: 100 }} />
+          </Spin>
+          <div style={{ marginTop: 16, color: '#666' }}>正在查询数据...</div>
         </div>
       )}
 

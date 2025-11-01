@@ -5,7 +5,7 @@
 
 // 设置测试环境变量
 process.env.NODE_ENV = 'test';
-process.env.DATABASE_URL = 'mysql://root:password@localhost:3306/websocket_relay_test';
+process.env.DATABASE_URL = 'mysql://root:micuadmin@localhost:33066/websocket_relay_test';
 
 // 可选：设置其他测试专用的环境变量
 process.env.JWT_SECRET = 'test-jwt-secret-for-testing-only';

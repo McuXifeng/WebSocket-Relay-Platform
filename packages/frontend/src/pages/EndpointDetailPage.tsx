@@ -395,13 +395,13 @@ function EndpointDetailPage() {
         </Space>
 
         {/* 端点详情卡片 */}
-        <Card title="端点详情" bordered={false}>
+        <Card title="端点详情">
           <Descriptions bordered column={isMobile ? 1 : 2}>
             <Descriptions.Item label="端点名称">{currentEndpoint.name}</Descriptions.Item>
 
             <Descriptions.Item label="端点 ID">{currentEndpoint.endpoint_id}</Descriptions.Item>
 
-            <Descriptions.Item label="转发模式">
+            <Descriptions.Item label="转发模式" span={currentEndpoint.forwarding_mode === ForwardingMode.CUSTOM_HEADER ? 1 : 2}>
               <Space>
                 {renderForwardingModeTag(currentEndpoint.forwarding_mode)}
                 <Button
@@ -422,7 +422,7 @@ function EndpointDetailPage() {
               </Descriptions.Item>
             )}
 
-            <Descriptions.Item label="WebSocket URL" span={isMobile ? 1 : 2}>
+            <Descriptions.Item label="WebSocket URL" span={2}>
               <div
                 style={{
                   display: 'flex',
@@ -466,7 +466,7 @@ function EndpointDetailPage() {
         </Card>
 
         {/* 功能 Tabs */}
-        <Card bordered={false}>
+        <Card>
           <Tabs
             defaultActiveKey="stats"
             items={[

@@ -74,3 +74,29 @@ export type {
   AlertLevel,
   AlertStatus,
 } from './alert.types';
+
+// DeviceGroup types
+export type {
+  DeviceGroup,
+  DeviceGroupMember,
+  DeviceGroupListItem,
+  DeviceGroupDetail,
+  DeviceGroupDeviceInfo,
+  GroupDataAggregation,
+  DataKeyAggregation,
+  BatchControlCommand,
+  BatchControlStatus,
+  BatchControlCommandDetail,
+  CreateDeviceGroupRequest,
+  UpdateDeviceGroupRequest,
+  AddDevicesToGroupRequest,
+  RemoveDevicesFromGroupRequest,
+  SendBatchControlRequest,
+  ExportGroupDataParams,
+  GetDeviceGroupsParams,
+  GetDeviceGroupsResponse,
+  AddDevicesToGroupResponse,
+  RemoveDevicesFromGroupResponse,
+  SendBatchControlResponse,
+  DeleteDeviceGroupResponse,
+} from './device-group.types';

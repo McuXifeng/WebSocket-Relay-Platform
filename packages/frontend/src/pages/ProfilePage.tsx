@@ -117,7 +117,8 @@ function ProfilePage() {
   if (authLoading) {
     return (
       <div style={{ textAlign: 'center', marginTop: '100px' }}>
-        <Spin tip="加载中..." size="large" />
+        <Spin size="large" />
+        <div style={{ marginTop: 16, color: '#666' }}>加载中...</div>
       </div>
     );
   }

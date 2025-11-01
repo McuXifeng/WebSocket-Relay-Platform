@@ -8,6 +8,8 @@ import ProfilePage from './pages/ProfilePage';
 import UserGuidePage from './pages/UserGuidePage';
 import DeveloperGuidePage from './pages/DeveloperGuidePage';
 import VisualizationDashboardPage from './pages/VisualizationDashboardPage';
+import DeviceGroupsPage from './pages/DeviceGroupsPage';
+import DeviceGroupDetailPage from './pages/DeviceGroupDetailPage';
 import InviteCodesPage from './pages/admin/InviteCodesPage';
 import UsersPage from './pages/admin/UsersPage';
 import AdminUserEndpointsPage from './pages/admin/AdminUserEndpointsPage';
@@ -84,6 +86,22 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <VisualizationDashboardPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'device-groups',
+        element: (
+          <ProtectedRoute>
+            <DeviceGroupsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'device-groups/:groupId',
+        element: (
+          <ProtectedRoute>
+            <DeviceGroupDetailPage />
           </ProtectedRoute>
         ),
       },

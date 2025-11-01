@@ -283,3 +283,180 @@ export async function getCommandById(commandId: string) {
     duration, // 响应耗时（毫秒）
   };
 }
+
+/**
+ * 批量控制指令参数接口
+ */
+export interface BatchControlCommandParams {
+  groupId: string; // 设备分组ID
+  commandType: string; // 指令类型
+  commandParams: Record<string, unknown>; // 指令参数
+}
+
+/**
+ * 批量发送控制指令（向分组内所有设备发送）
+ * @param params - 批量控制指令参数
+ * @returns 批量指令结果（包含 batchId 和每个设备的指令状态）
+ * @throws Error - 分组不存在、权限错误等
+ */
+export async function sendBatchControlCommand(params: BatchControlCommandParams) {
+  const { groupId, commandType, commandParams } = params;
+
+  // 1. 生成唯一的 batchId（使用nanoid，12位字符）
+  const batchId = nanoid(12);
+
+  // 2. 查询分组内的所有设备
+  const members = await prisma.deviceGroupMember.findMany({
+    where: { group_id: groupId },
+    include: {
+      device: {
+        include: {
+          endpoint: {
+            select: {
+              id: true,
+              endpoint_id: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (members.length === 0) {
+    throw new Error('EMPTY_GROUP');
+  }
+
+  // 3. 并发发送控制指令到所有设备
+  const commandPromises = members.map(async (member) => {
+    const device = member.device;
+    const endpoint = device.endpoint;
+
+    try {
+      const result = await sendControlCommand({
+        endpointId: endpoint.id,
+        deviceId: device.id,
+        deviceIdentifier: device.device_id,
+        endpointIdentifier: endpoint.endpoint_id,
+        commandType,
+        commandParams: {
+          ...commandParams,
+          batchId, // 添加 batchId 到参数中
+        },
+      });
+
+      return {
+        deviceId: device.id,
+        deviceName: device.custom_name,
+        commandId: result.commandId,
+        status: 'pending' as const,
+      };
+    } catch (error) {
+      // 单个设备失败不影响其他设备
+      return {
+        deviceId: device.id,
+        deviceName: device.custom_name,
+        commandId: null,
+        status: 'failed' as const,
+        errorMessage: error instanceof Error ? error.message : '发送失败',
+      };
+    }
+  });
+
+  // 使用 Promise.allSettled 等待所有指令发送完成
+  const results = await Promise.allSettled(commandPromises);
+
+  // 整理结果
+  const commands = results.map((result, index) => {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    } else {
+      // Promise rejected（不应该发生，因为已经在内部catch了）
+      const device = members[index].device;
+      return {
+        deviceId: device.id,
+        deviceName: device.custom_name,
+        commandId: null,
+        status: 'failed' as const,
+        errorMessage: '发送失败',
+      };
+    }
+  });
+
+  return {
+    batchId,
+    totalDevices: members.length,
+    commands,
+  };
+}
+
+/**
+ * 查询批量指令状态
+ * @param batchId - 批量指令ID
+ * @returns 批量指令的聚合状态
+ */
+export async function getBatchControlStatus(batchId: string) {
+  // 查询所有包含该 batchId 的控制指令
+  const commands = await prisma.controlCommand.findMany({
+    where: {
+      command_params: {
+        contains: `"batchId":"${batchId}"`,
+      },
+    },
+    include: {
+      device: {
+        select: {
+          id: true,
+          device_id: true,
+          custom_name: true,
+        },
+      },
+    },
+    orderBy: {
+      sent_at: 'desc',
+    },
+  });
+
+  if (commands.length === 0) {
+    throw new Error('BATCH_NOT_FOUND');
+  }
+
+  // 统计各状态的数量
+  const statusCounts = {
+    success: 0,
+    failed: 0,
+    pending: 0,
+    timeout: 0,
+  };
+
+  commands.forEach((cmd) => {
+    const status = cmd.status as keyof typeof statusCounts;
+    statusCounts[status]++;
+  });
+
+  // 格式化返回数据
+  const formattedCommands = commands.map((cmd) => {
+    const duration =
+      cmd.ack_at && cmd.sent_at ? cmd.ack_at.getTime() - cmd.sent_at.getTime() : null;
+
+    return {
+      deviceId: cmd.device.id,
+      deviceName: cmd.device.custom_name,
+      commandId: cmd.command_id,
+      status: cmd.status,
+      sentAt: cmd.sent_at.toISOString(),
+      ackAt: cmd.ack_at ? cmd.ack_at.toISOString() : null,
+      errorMessage: cmd.error_message,
+      duration,
+    };
+  });
+
+  return {
+    batchId,
+    totalDevices: commands.length,
+    successCount: statusCounts.success,
+    failedCount: statusCounts.failed,
+    pendingCount: statusCounts.pending,
+    timeoutCount: statusCounts.timeout,
+    commands: formattedCommands,
+  };
+}

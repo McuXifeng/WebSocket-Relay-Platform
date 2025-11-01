@@ -8,6 +8,7 @@ import visualizationRouter from './routes/visualization.routes.js';
 import controlRouter from './routes/control.routes.js';
 import alertRuleRouter from './routes/alert-rule.routes.js';
 import alertHistoryRouter from './routes/alert-history.routes.js';
+import deviceGroupRouter from './routes/device-group.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.middleware.js';
 import { config } from './config/env.js';
 
@@ -57,6 +58,9 @@ function createApp(): Express {
 
   // 挂载告警历史路由到 /api/alert-history 前缀下 (Epic 6 Story 6.5 新增)
   app.use('/api/alert-history', alertHistoryRouter);
+
+  // 挂载设备分组路由到 /api/device-groups 前缀下 (Epic 6 Story 6.6 新增)
+  app.use('/api/device-groups', deviceGroupRouter);
 
   // 404 Not Found 处理（必须在所有路由之后，错误处理之前）
   app.use(notFoundHandler);

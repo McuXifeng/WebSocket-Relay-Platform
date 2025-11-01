@@ -125,7 +125,8 @@ function AdminUserEndpointsPage() {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', marginTop: '100px' }}>
-        <Spin tip="加载中..." size="large" />
+        <Spin size="large" />
+        <div style={{ marginTop: 16, color: '#666' }}>加载中...</div>
       </div>
     );
   }
@@ -199,7 +200,10 @@ function AdminUserEndpointsPage() {
           }}
         >
           {endpointsLoading ? (
-            <Spin tip="加载中..." />
+            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+              <Spin />
+              <div style={{ marginTop: 16, color: '#666' }}>加载中...</div>
+            </div>
           ) : (
             <Table
               dataSource={endpoints}

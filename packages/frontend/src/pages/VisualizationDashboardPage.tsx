@@ -224,9 +224,12 @@ const VisualizationDashboardPage: React.FC = () => {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
+            flexDirection: 'column',
+            gap: '16px',
           }}
         >
-          <Spin size="large" tip="加载中..." />
+          <Spin size="large" />
+          <div style={{ color: '#666' }}>加载中...</div>
         </Content>
       </Layout>
     );

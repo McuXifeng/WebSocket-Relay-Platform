@@ -8,6 +8,7 @@ import {
   SettingOutlined,
   BookOutlined,
   BarChartOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
@@ -124,6 +125,14 @@ function MainLayout() {
       label: '数据可视化',
       onClick: () => {
         void navigate('/visualization');
+      },
+    },
+    {
+      key: 'device-groups',
+      icon: <TeamOutlined />,
+      label: '设备分组',
+      onClick: () => {
+        void navigate('/device-groups');
       },
     },
     {

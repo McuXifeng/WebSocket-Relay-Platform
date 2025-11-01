@@ -34,6 +34,7 @@ model User {
   used_invite_code     InviteCode?  @relation("UsedBy")
   visualizationCards   VisualizationCard[]
   alert_rules          AlertRule[]
+  device_groups        DeviceGroup[]
 
   @@index([username])
   @@index([email])
@@ -77,6 +78,7 @@ model Endpoint {
   visualizationCards VisualizationCard[]
   control_commands   ControlCommand[]
   alert_rules        AlertRule[]
+  device_groups      DeviceGroup[]
 
   @@index([endpoint_id])
   @@index([user_id])
@@ -121,12 +123,13 @@ model Device {
   last_connected_at DateTime @default(now())
   created_at        DateTime @default(now())
 
-  endpoint           Endpoint            @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+  endpoint           Endpoint              @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
   data               DeviceData[]
   visualizationCards VisualizationCard[]
   control_commands   ControlCommand[]
   alert_rules        AlertRule[]
   alert_history      AlertHistory[]
+  group_members      DeviceGroupMember[]
 
   @@unique([endpoint_id, device_id])
   @@index([endpoint_id])
@@ -244,4 +247,39 @@ model AlertHistory {
   @@index([triggered_at])
   @@index([status])
   @@map("alert_history")
+}
+
+// DeviceGroup 模型 (Epic 6 Story 6.6 新增)
+model DeviceGroup {
+  id          String   @id @default(uuid())
+  user_id     String
+  endpoint_id String
+  group_name  String   @db.VarChar(50)
+  description String?  @db.VarChar(200)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  user     User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  endpoint Endpoint            @relation(fields: [endpoint_id], references: [id], onDelete: Cascade)
+  members  DeviceGroupMember[]
+
+  @@index([user_id])
+  @@index([endpoint_id])
+  @@map("device_groups")
+}
+
+// DeviceGroupMember 模型 (Epic 6 Story 6.6 新增)
+model DeviceGroupMember {
+  id        String   @id @default(uuid())
+  group_id  String
+  device_id String
+  added_at  DateTime @default(now())
+
+  group  DeviceGroup @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  device Device      @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
+  @@unique([group_id, device_id])
+  @@index([group_id])
+  @@index([device_id])
+  @@map("device_group_members")
 }

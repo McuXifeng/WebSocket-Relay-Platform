@@ -374,3 +374,165 @@ export async function getDeviceDataHistory(
     throw error;
   }
 }
+
+// 分组设备数据导出接口
+export interface GroupDeviceDataExport {
+  device_id: string;
+  device_name: string;
+  timestamp: string;
+  [key: string]: string | number; // 动态数据字段
+}
+
+/**
+ * 导出分组设备数据（支持CSV和JSON格式）
+ * @param deviceIds 设备ID列表
+ * @param startTime 开始时间（ISO 8601格式）
+ * @param endTime 结束时间（ISO 8601格式）
+ * @param dataKeys 要导出的数据字段键（可选，为空则导出所有字段）
+ * @param limit 最大返回数据量（默认10000条）
+ * @returns 导出数据数组
+ */
+export async function exportGroupDeviceData(
+  deviceIds: string[],
+  startTime: string,
+  endTime: string,
+  dataKeys?: string[],
+  limit = 10000
+): Promise<GroupDeviceDataExport[]> {
+  try {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+
+    // 构建查询条件
+    const whereCondition: {
+      device_id: { in: string[] };
+      timestamp: { gte: Date; lte: Date };
+      data_key?: { in: string[] };
+    } = {
+      device_id: { in: deviceIds },
+      timestamp: {
+        gte: start,
+        lte: end,
+      },
+    };
+
+    // 如果指定了 data_keys，添加过滤条件
+    if (dataKeys && dataKeys.length > 0) {
+      whereCondition.data_key = { in: dataKeys };
+    }
+
+    // 查询设备数据（包含设备信息）
+    const rawData = await prisma.deviceData.findMany({
+      where: whereCondition,
+      include: {
+        device: {
+          select: {
+            device_id: true, // 设备的 device_id（WebSocket ID）
+            custom_name: true,
+          },
+        },
+      },
+      orderBy: [{ device_id: 'asc' }, { timestamp: 'asc' }],
+      take: limit,
+    });
+
+    // 将数据转换为导出格式（按时间戳和设备分组）
+    const groupedData = new Map<
+      string,
+      {
+        device_id: string;
+        device_name: string;
+        timestamp: string;
+        data: Record<string, string>;
+      }
+    >();
+
+    for (const record of rawData) {
+      // 创建唯一键：设备ID + 时间戳（精确到秒）
+      const timestampKey = record.timestamp.toISOString();
+      const uniqueKey = `${record.device_id}_${timestampKey}`;
+
+      if (!groupedData.has(uniqueKey)) {
+        groupedData.set(uniqueKey, {
+          device_id: record.device.device_id,
+          device_name: record.device.custom_name || record.device.device_id,
+          timestamp: timestampKey,
+          data: {},
+        });
+      }
+
+      const group = groupedData.get(uniqueKey)!;
+      group.data[record.data_key] = record.data_value;
+    }
+
+    // 转换为数组格式
+    return Array.from(groupedData.values()).map((item) => ({
+      device_id: item.device_id,
+      device_name: item.device_name,
+      timestamp: item.timestamp,
+      ...item.data,
+    }));
+  } catch (error) {
+    console.error('❌ Failed to export group device data:', error);
+    throw error;
+  }
+}
+
+/**
+ * 将导出数据转换为CSV格式
+ * @param data 导出数据数组
+ * @returns CSV字符串
+ */
+export function formatDataAsCSV(data: GroupDeviceDataExport[]): string {
+  if (data.length === 0) {
+    return '';
+  }
+
+  // 获取所有列名（去重）
+  const columnSet = new Set<string>();
+  columnSet.add('device_id');
+  columnSet.add('device_name');
+  columnSet.add('timestamp');
+
+  for (const row of data) {
+    for (const key of Object.keys(row)) {
+      if (key !== 'device_id' && key !== 'device_name' && key !== 'timestamp') {
+        columnSet.add(key);
+      }
+    }
+  }
+
+  const columns = Array.from(columnSet);
+
+  // 构建CSV头部
+  const header = columns.join(',');
+
+  // 构建CSV行
+  const rows = data.map((row) => {
+    return columns
+      .map((col) => {
+        const value = row[col];
+        // CSV转义：包含逗号或双引号的值需要用双引号包裹
+        if (value === undefined || value === null) {
+          return '';
+        }
+        const strValue = String(value);
+        if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n')) {
+          return `"${strValue.replace(/"/g, '""')}"`;
+        }
+        return strValue;
+      })
+      .join(',');
+  });
+
+  return [header, ...rows].join('\n');
+}
+
+/**
+ * 将导出数据转换为JSON格式
+ * @param data 导出数据数组
+ * @returns JSON字符串
+ */
+export function formatDataAsJSON(data: GroupDeviceDataExport[]): string {
+  return JSON.stringify(data, null, 2);
+}
