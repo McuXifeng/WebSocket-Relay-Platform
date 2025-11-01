@@ -11,6 +11,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   loading: boolean;
 }
 
@@ -97,11 +98,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   };
 
+  /**
+   * 刷新用户信息
+   */
+  const refreshUser = async (): Promise<void> => {
+    try {
+      const user = await authService.getCurrentUser();
+      setUser(user);
+    } catch (error) {
+      console.error('刷新用户信息失败:', error);
+      // Token 无效时清除登录状态
+      localStorage.removeItem('token');
+      setUser(null);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated: user !== null,
     login,
     logout,
+    refreshUser,
     loading,
   };
 

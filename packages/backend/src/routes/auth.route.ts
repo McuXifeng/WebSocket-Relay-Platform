@@ -81,4 +81,10 @@ router.post('/login', loginRateLimiter, authController.login as RequestHandler);
  */
 router.get('/me', authenticateToken, authController.getCurrentUser as RequestHandler);
 
+/**
+ * PUT /profile
+ * 更新用户个人信息（需要认证）
+ */
+router.put('/profile', authenticateToken, authController.updateProfile as RequestHandler);
+
 export default router;

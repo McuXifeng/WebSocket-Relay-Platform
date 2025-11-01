@@ -8,11 +8,9 @@ import {
   CreateCardDto,
   UpdateCardDto,
 } from '../services/visualization-card.service';
-import {
-  getDeviceDataHistory,
-  DeviceDataHistory,
-} from '../services/device-data.service';
+import { getDeviceDataHistory, DeviceDataHistory } from '../services/device-data.service';
 import prisma from '../config/database.js';
+import { connectionManager } from '../websocket/connection-manager';
 
 // 请求体类型定义
 interface CreateCardRequestBody {
@@ -88,10 +86,7 @@ export async function createCardHandler(
  * 获取用户所有卡片配置
  * GET /api/visualization/cards
  */
-export async function getAllCardsHandler(
-  req: Request,
-  res: Response
-): Promise<void> {
+export async function getAllCardsHandler(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -128,10 +123,7 @@ export async function getAllCardsHandler(
  * 获取单个卡片配置
  * GET /api/visualization/cards/:id
  */
-export async function getCardHandler(
-  req: Request<{ id: string }>,
-  res: Response
-): Promise<void> {
+export async function getCardHandler(req: Request<{ id: string }>, res: Response): Promise<void> {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -188,8 +180,7 @@ export async function updateCardHandler(
     if (body.dataKey !== undefined) updateData.dataKey = body.dataKey;
     if (body.title !== undefined) updateData.title = body.title;
     if (body.config !== undefined) updateData.config = JSON.stringify(body.config);
-    if (body.position !== undefined)
-      updateData.position = JSON.stringify(body.position);
+    if (body.position !== undefined) updateData.position = JSON.stringify(body.position);
 
     const card = await updateCard(cardId, userId, updateData);
 
@@ -245,6 +236,68 @@ export async function deleteCardHandler(
 }
 
 /**
+ * 获取端点的设备列表
+ * GET /api/visualization/endpoints/:endpointId/devices
+ */
+export async function getEndpointDevicesHandler(
+  req: Request<{ endpointId: string }>,
+  res: Response
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: '未授权访问' });
+      return;
+    }
+
+    const { endpointId } = req.params;
+
+    // 验证端点存在
+    const endpoint = await prisma.endpoint.findUnique({
+      where: {
+        id: endpointId,
+      },
+    });
+
+    if (!endpoint) {
+      res.status(404).json({ error: '端点不存在' });
+      return;
+    }
+
+    // 验证端点归属
+    if (endpoint.user_id !== userId) {
+      res.status(403).json({ error: '无权访问该端点' });
+      return;
+    }
+
+    // 查询该端点下的所有设备
+    const devices = await prisma.device.findMany({
+      where: {
+        endpoint_id: endpointId,
+      },
+      select: {
+        id: true,
+        device_id: true,
+        custom_name: true,
+        last_connected_at: true,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    res.status(200).json({
+      devices,
+    });
+  } catch (error) {
+    console.error('获取端点设备列表失败:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : '获取端点设备列表失败',
+    });
+  }
+}
+
+/**
  * 获取设备历史数据
  * GET /api/endpoints/:endpointId/devices/:deviceId/data/history
  */
@@ -258,6 +311,7 @@ export async function getDeviceDataHistoryHandler(
       startTime: string;
       endTime: string;
       aggregation?: 'minute' | 'hour' | 'day';
+      aggregateType?: 'avg' | 'max' | 'min';
       limit?: string;
     }
   >,
@@ -271,7 +325,7 @@ export async function getDeviceDataHistoryHandler(
     }
 
     const { endpointId, deviceId } = req.params;
-    const { dataKey, startTime, endTime, aggregation, limit } = req.query;
+    const { dataKey, startTime, endTime, aggregation, aggregateType, limit } = req.query;
 
     // 验证必填参数
     if (!dataKey || !startTime || !endTime) {
@@ -295,6 +349,14 @@ export async function getDeviceDataHistoryHandler(
     if (aggregation && !['minute', 'hour', 'day'].includes(aggregation)) {
       res.status(400).json({
         error: '无效的aggregation参数，只支持: minute, hour, day',
+      });
+      return;
+    }
+
+    // 验证aggregateType参数
+    if (aggregateType && !['avg', 'max', 'min'].includes(aggregateType)) {
+      res.status(400).json({
+        error: '无效的aggregateType参数，只支持: avg, max, min',
       });
       return;
     }
@@ -337,19 +399,21 @@ export async function getDeviceDataHistoryHandler(
       startTime,
       endTime,
       aggregation,
+      aggregateType || 'avg', // 默认使用平均值聚合
       limit ? parseInt(limit, 10) : 1000
     );
 
     // 构造响应
     const response: DeviceDataHistory = {
       deviceId: device.id,
-      deviceName: device.name || device.device_id,
+      deviceName: device.custom_name || device.device_id,
       dataKey,
       timeRange: {
         startTime,
         endTime,
       },
       aggregation,
+      aggregateType: aggregation ? aggregateType || 'avg' : undefined, // 只有聚合查询时才返回 aggregateType
       records,
     };
 
@@ -358,6 +422,75 @@ export async function getDeviceDataHistoryHandler(
     console.error('获取设备历史数据失败:', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : '获取设备历史数据失败',
+    });
+  }
+}
+
+/**
+ * 获取端点的设备在线状态（实时检查WebSocket连接）
+ * GET /api/visualization/endpoints/:endpointId/devices/online-status
+ */
+export async function getDevicesOnlineStatusHandler(
+  req: Request<{ endpointId: string }>,
+  res: Response
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: '未授权访问' });
+      return;
+    }
+
+    const { endpointId } = req.params;
+
+    // 验证端点存在
+    const endpoint = await prisma.endpoint.findUnique({
+      where: {
+        id: endpointId,
+      },
+    });
+
+    if (!endpoint) {
+      res.status(404).json({ error: '端点不存在' });
+      return;
+    }
+
+    // 验证端点归属
+    if (endpoint.user_id !== userId) {
+      res.status(403).json({ error: '无权访问该端点' });
+      return;
+    }
+
+    // 查询该端点下的所有设备
+    const devices = await prisma.device.findMany({
+      where: {
+        endpoint_id: endpointId,
+      },
+      select: {
+        id: true,
+        device_id: true,
+      },
+    });
+
+    // 检查每个设备的在线状态（实时检查WebSocket连接）
+    const onlineStatus: Record<string, boolean> = {};
+
+    for (const device of devices) {
+      // 通过ConnectionManager检查设备是否有活跃的WebSocket连接
+      const connection = connectionManager.getDeviceConnection(
+        endpoint.endpoint_id,
+        device.device_id
+      );
+      onlineStatus[device.id] = connection !== null;
+    }
+
+    res.status(200).json({
+      onlineStatus,
+    });
+  } catch (error) {
+    console.error('获取设备在线状态失败:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : '获取设备在线状态失败',
     });
   }
 }

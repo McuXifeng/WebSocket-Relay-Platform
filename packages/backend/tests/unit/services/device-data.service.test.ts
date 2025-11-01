@@ -171,10 +171,13 @@ describe('device-data.service', () => {
 
       const result = parseDeviceData(message);
 
-      const units = result.reduce((acc, item) => {
-        acc[item.data_key] = item.unit;
-        return acc;
-      }, {} as Record<string, string | null>);
+      const units = result.reduce(
+        (acc, item) => {
+          acc[item.data_key] = item.unit;
+          return acc;
+        },
+        {} as Record<string, string | null>
+      );
 
       expect(units.temperature).toBe('°C');
       expect(units.temp).toBe('°C');
@@ -245,9 +248,7 @@ describe('device-data.service', () => {
       ];
 
       // 使用不存在的设备ID（会导致外键约束失败）
-      await expect(
-        saveDeviceDataAsync('non-existent-device', parsedData)
-      ).resolves.not.toThrow();
+      await expect(saveDeviceDataAsync('non-existent-device', parsedData)).resolves.not.toThrow();
     });
   });
 
@@ -397,9 +398,7 @@ describe('device-data.service', () => {
       // 插入测试数据（每10分钟一条，共13条）
       const testData = [];
       for (let i = 0; i <= 12; i++) {
-        const timestamp = new Date(
-          startTime.getTime() + i * 10 * 60 * 1000
-        );
+        const timestamp = new Date(startTime.getTime() + i * 10 * 60 * 1000);
         testData.push({
           device_id: TEST_DEVICE_ID,
           data_key: 'temperature',
@@ -499,12 +498,133 @@ describe('device-data.service', () => {
         startTime.toISOString(),
         endTime.toISOString(),
         undefined,
+        'avg',
         limit
       );
 
       // 验证返回数据不超过limit
       expect(result.length).toBeLessThanOrEqual(limit);
       expect(result.length).toBe(limit);
+    });
+
+    it('应该正确执行按小时聚合最大值（aggregateType=max）', async () => {
+      const result = await getDeviceDataHistory(
+        TEST_DEVICE_ID,
+        'temperature',
+        startTime.toISOString(),
+        endTime.toISOString(),
+        'hour',
+        'max'
+      );
+
+      // 验证返回聚合数据
+      expect(result.length).toBeGreaterThan(0);
+
+      // 验证每条记录包含聚合信息
+      result.forEach((item) => {
+        expect(item.count).toBeDefined();
+        expect(item.count).toBeGreaterThan(0);
+        // 最大值应该在合理范围内
+        expect(item.value).toBeGreaterThanOrEqual(25);
+        expect(item.value).toBeLessThanOrEqual(31);
+      });
+    });
+
+    it('应该正确执行按小时聚合最小值（aggregateType=min）', async () => {
+      const result = await getDeviceDataHistory(
+        TEST_DEVICE_ID,
+        'temperature',
+        startTime.toISOString(),
+        endTime.toISOString(),
+        'hour',
+        'min'
+      );
+
+      // 验证返回聚合数据
+      expect(result.length).toBeGreaterThan(0);
+
+      // 验证每条记录包含聚合信息
+      result.forEach((item) => {
+        expect(item.count).toBeDefined();
+        expect(item.count).toBeGreaterThan(0);
+        // 最小值应该在合理范围内
+        expect(item.value).toBeGreaterThanOrEqual(25);
+        expect(item.value).toBeLessThanOrEqual(31);
+      });
+    });
+
+    it('应该正确执行按天聚合平均值/最大值/最小值', async () => {
+      // 测试平均值
+      const avgResult = await getDeviceDataHistory(
+        TEST_DEVICE_ID,
+        'temperature',
+        startTime.toISOString(),
+        endTime.toISOString(),
+        'day',
+        'avg'
+      );
+      expect(avgResult.length).toBe(1);
+      expect(avgResult[0].value).toBeCloseTo(28, 1);
+
+      // 测试最大值
+      const maxResult = await getDeviceDataHistory(
+        TEST_DEVICE_ID,
+        'temperature',
+        startTime.toISOString(),
+        endTime.toISOString(),
+        'day',
+        'max'
+      );
+      expect(maxResult.length).toBe(1);
+      expect(maxResult[0].value).toBeGreaterThanOrEqual(avgResult[0].value);
+
+      // 测试最小值
+      const minResult = await getDeviceDataHistory(
+        TEST_DEVICE_ID,
+        'temperature',
+        startTime.toISOString(),
+        endTime.toISOString(),
+        'day',
+        'min'
+      );
+      expect(minResult.length).toBe(1);
+      expect(minResult[0].value).toBeLessThanOrEqual(avgResult[0].value);
+
+      // 验证关系：最小值 <= 平均值 <= 最大值
+      expect(minResult[0].value).toBeLessThanOrEqual(avgResult[0].value);
+      expect(avgResult[0].value).toBeLessThanOrEqual(maxResult[0].value);
+    });
+
+    it('默认聚合类型应为平均值（aggregateType未指定时）', async () => {
+      const result = await getDeviceDataHistory(
+        TEST_DEVICE_ID,
+        'temperature',
+        startTime.toISOString(),
+        endTime.toISOString(),
+        'day'
+        // 不指定 aggregateType
+      );
+
+      expect(result.length).toBe(1);
+      // 验证默认使用平均值
+      expect(result[0].value).toBeCloseTo(28, 1);
+    });
+
+    it('在无聚合时应忽略aggregateType参数', async () => {
+      const result = await getDeviceDataHistory(
+        TEST_DEVICE_ID,
+        'temperature',
+        startTime.toISOString(),
+        endTime.toISOString(),
+        undefined,
+        'max' // 尽管指定了 aggregateType，但无聚合时应忽略
+      );
+
+      // 验证返回原始数据（无聚合）
+      expect(result.length).toBe(13);
+      result.forEach((item) => {
+        expect(item.count).toBeUndefined(); // 原始数据不包含 count
+      });
     });
 
     it('应该按timestamp升序排序返回结果', async () => {

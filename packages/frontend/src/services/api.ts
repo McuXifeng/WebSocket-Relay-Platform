@@ -185,6 +185,13 @@ export const api = {
   ): Promise<T> => {
     return apiClient.put<T>(url, data, config) as Promise<T>;
   },
+  patch: <T>(
+    url: string,
+    data?: unknown,
+    config?: Parameters<typeof apiClient.patch>[2]
+  ): Promise<T> => {
+    return apiClient.patch<T>(url, data, config) as Promise<T>;
+  },
   delete: <T>(url: string, config?: Parameters<typeof apiClient.delete>[1]): Promise<T> => {
     return apiClient.delete<T>(url, config) as Promise<T>;
   },

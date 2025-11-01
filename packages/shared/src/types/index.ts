@@ -53,3 +53,24 @@ export type {
   IdentifyMessage,
   IdentifiedMessage,
 } from './device.types';
+
+// Alert types
+export type {
+  AlertRule,
+  AlertRuleWithDetails,
+  CreateAlertRuleRequest,
+  UpdateAlertRuleRequest,
+  GetAlertRulesResponse,
+  CreateAlertRuleResponse,
+  AlertHistory,
+  AlertHistoryWithDetails,
+  GetAlertHistoryResponse,
+  GetUnreadCountResponse,
+  MarkAlertAsReadRequest,
+  MarkAlertAsProcessedRequest,
+  DeleteAlertHistoryRequest,
+  AlertNotificationMessage,
+  AlertOperator,
+  AlertLevel,
+  AlertStatus,
+} from './alert.types';

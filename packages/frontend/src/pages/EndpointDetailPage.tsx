@@ -15,6 +15,7 @@ import {
   Radio,
   Form,
   Input,
+  Tabs,
 } from 'antd';
 import {
   CopyOutlined,
@@ -24,6 +25,12 @@ import {
   BookOutlined,
   ReloadOutlined,
   EditOutlined,
+  BarChartOutlined,
+  HistoryOutlined,
+  DatabaseOutlined,
+  MobileOutlined,
+  BellOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -38,6 +45,11 @@ import {
 import EndpointStatsCard from '../components/endpoints/EndpointStatsCard';
 import MessageHistoryCard from '../components/endpoints/MessageHistoryCard';
 import DeviceListCard from '../components/endpoints/DeviceListCard';
+import DataHistoryTab from '../components/endpoints/DataHistoryTab';
+import AlertRulesTab from '../components/endpoints/AlertRulesTab';
+import AlertHistoryTab from '../components/endpoints/AlertHistoryTab';
+// 设备控制功能已整合到 DataHistoryTab 中，不再需要独立的 DeviceControlTab
+// import DeviceControlTab from '../components/endpoints/DeviceControlTab';
 import { usePolling } from '../hooks/usePolling';
 
 const { useBreakpoint } = Grid;
@@ -453,25 +465,98 @@ function EndpointDetailPage() {
           </Descriptions>
         </Card>
 
-        {/* 实时统计卡片 */}
-        <div>
-          <div style={{ marginBottom: 16, textAlign: 'right' }}>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => void handleRefreshStats()}
-              loading={statsLoading}
-            >
-              刷新统计数据
-            </Button>
-          </div>
-          <EndpointStatsCard stats={stats} loading={statsLoading} />
-        </div>
-
-        {/* 历史消息卡片 */}
-        <MessageHistoryCard endpointId={currentEndpoint.id} />
-
-        {/* 连接设备列表 */}
-        <DeviceListCard endpointId={currentEndpoint.id} />
+        {/* 功能 Tabs */}
+        <Card bordered={false}>
+          <Tabs
+            defaultActiveKey="stats"
+            items={[
+              {
+                key: 'stats',
+                label: (
+                  <span>
+                    <BarChartOutlined />
+                    实时统计
+                  </span>
+                ),
+                children: (
+                  <div>
+                    <div style={{ marginBottom: 16, textAlign: 'right' }}>
+                      <Button
+                        icon={<ReloadOutlined />}
+                        onClick={() => void handleRefreshStats()}
+                        loading={statsLoading}
+                      >
+                        刷新统计数据
+                      </Button>
+                    </div>
+                    <EndpointStatsCard stats={stats} loading={statsLoading} />
+                  </div>
+                ),
+              },
+              {
+                key: 'messages',
+                label: (
+                  <span>
+                    <HistoryOutlined />
+                    消息历史
+                  </span>
+                ),
+                children: <MessageHistoryCard endpointId={currentEndpoint.id} />,
+              },
+              {
+                key: 'data-history',
+                label: (
+                  <span>
+                    <DatabaseOutlined />
+                    数据历史
+                  </span>
+                ),
+                children: <DataHistoryTab endpointId={currentEndpoint.id} />,
+              },
+              {
+                key: 'devices',
+                label: (
+                  <span>
+                    <MobileOutlined />
+                    设备列表
+                  </span>
+                ),
+                children: <DeviceListCard endpointId={currentEndpoint.id} />,
+              },
+              {
+                key: 'alert-rules',
+                label: (
+                  <span>
+                    <BellOutlined />
+                    告警规则
+                  </span>
+                ),
+                children: <AlertRulesTab endpointId={currentEndpoint.id} />,
+              },
+              {
+                key: 'alert-history',
+                label: (
+                  <span>
+                    <WarningOutlined />
+                    告警历史
+                  </span>
+                ),
+                children: <AlertHistoryTab endpointId={currentEndpoint.id} />,
+              },
+              // 设备控制功能已整合到 DataHistoryTab 中，不再需要独立的设备控制Tab
+              // {
+              //   key: 'control',
+              //   label: (
+              //     <span>
+              //       <ControlOutlined />
+              //       设备控制
+              //     </span>
+              //   ),
+              //   children: <DeviceControlTab endpointId={currentEndpoint.id} />,
+              // },
+            ]}
+          />
+        </Card>
 
         {/* 危险操作区 */}
         <Card title="危险操作" bordered={false}>

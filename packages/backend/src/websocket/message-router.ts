@@ -202,47 +202,99 @@ export async function broadcastToEndpoint(
   });
 
   // 5. 异步数据解析和存储 (Epic 6 新增，不阻塞消息转发)
+  // Story 6.5 改进：支持所有转发模式下的设备数据解析和告警功能
   const extSocket = senderSocket as ExtendedWebSocket;
   console.log('🔍 检查设备ID:', {
     hasDeviceId: !!extSocket.deviceId,
     deviceId: extSocket.deviceId,
     messageType: typeof message,
   });
-  if (extSocket.deviceId) {
-    // 尝试解析消息（可能是字符串或对象）
+
+  if (extSocket.deviceId && extSocket.dbDeviceId) {
+    // 尝试解析消息（支持字符串、Buffer、对象）
     let parsedMessage: Record<string, unknown> | null = null;
 
-    if (typeof message === 'object' && message !== null) {
+    if (typeof message === 'object' && message !== null && !Buffer.isBuffer(message)) {
       // 如果消息已经是对象，直接使用
       parsedMessage = message as Record<string, unknown>;
-    } else if (typeof message === 'string') {
-      // 如果消息是字符串，尝试解析 JSON
-      try {
-        const parsed = JSON.parse(message) as unknown;
-        if (typeof parsed === 'object' && parsed !== null) {
-          parsedMessage = parsed as Record<string, unknown>;
+    } else {
+      // 如果消息是字符串或 Buffer，尝试解析 JSON
+      let messageStr: string;
+      if (Buffer.isBuffer(message)) {
+        messageStr = message.toString();
+      } else if (typeof message === 'string') {
+        messageStr = message;
+      } else {
+        messageStr = '';
+      }
+
+      // 尝试解析 JSON
+      if (messageStr) {
+        try {
+          const parsed = JSON.parse(messageStr) as unknown;
+          if (typeof parsed === 'object' && parsed !== null) {
+            parsedMessage = parsed as Record<string, unknown>;
+          }
+        } catch {
+          // JSON 解析失败，忽略（非结构化数据消息）
         }
-      } catch {
-        // JSON 解析失败，忽略
       }
     }
 
-    // 检查是否为数据消息
-    if (
-      parsedMessage &&
-      parsedMessage.type === 'data' &&
-      parsedMessage.data &&
-      typeof parsedMessage.data === 'object'
-    ) {
-      // 构造 DeviceDataMessage
+    // 检查是否为有效的数据消息（支持多种格式）
+    let deviceData: Record<string, unknown> | null = null;
+    let timestamp: number | undefined;
+
+    if (parsedMessage) {
+      // 格式1: { type: 'data', data: { ... }, timestamp: ... }
+      if (
+        parsedMessage.type === 'data' &&
+        parsedMessage.data &&
+        typeof parsedMessage.data === 'object'
+      ) {
+        deviceData = parsedMessage.data as Record<string, unknown>;
+        timestamp =
+          typeof parsedMessage.timestamp === 'number' ? parsedMessage.timestamp : undefined;
+      }
+      // 格式2: { data: { ... }, timestamp: ... }（无 type 字段）
+      else if (
+        parsedMessage.data &&
+        typeof parsedMessage.data === 'object' &&
+        !parsedMessage.type
+      ) {
+        deviceData = parsedMessage.data as Record<string, unknown>;
+        timestamp =
+          typeof parsedMessage.timestamp === 'number' ? parsedMessage.timestamp : undefined;
+      }
+      // 格式3: 直接是数据对象 { temperature: 25, humidity: 60, ... }
+      // 检查是否包含至少一个数值或字符串键值对，且不包含特殊字段（type, timestamp）
+      else if (
+        Object.keys(parsedMessage).length > 0 &&
+        Object.entries(parsedMessage).some(
+          ([key, value]) =>
+            !['type', 'timestamp'].includes(key) &&
+            (typeof value === 'number' ||
+              typeof value === 'string' ||
+              typeof value === 'boolean' ||
+              typeof value === 'object')
+        )
+      ) {
+        // 过滤掉 type 和 timestamp 字段，剩余的作为数据
+        deviceData = Object.fromEntries(
+          Object.entries(parsedMessage).filter(([key]) => !['type', 'timestamp'].includes(key))
+        );
+        timestamp =
+          typeof parsedMessage.timestamp === 'number' ? parsedMessage.timestamp : undefined;
+      }
+    }
+
+    // 如果成功解析出设备数据，异步保存
+    if (deviceData && Object.keys(deviceData).length > 0) {
       const deviceDataMsg: DeviceDataMessage = {
         type: 'data',
         deviceId: extSocket.deviceId,
-        timestamp:
-          typeof parsedMessage.timestamp === 'number'
-            ? parsedMessage.timestamp
-            : undefined,
-        data: parsedMessage.data as Record<string, unknown>,
+        timestamp,
+        data: deviceData,
       };
 
       // 异步解析和存储数据（不使用 await，让数据解析在后台执行）
@@ -250,7 +302,9 @@ export async function broadcastToEndpoint(
         try {
           console.log('🔍 开始解析设备数据:', {
             deviceId: extSocket.deviceId,
-            data: deviceDataMsg.data,
+            dataKeys: Object.keys(deviceData),
+            dataCount: Object.keys(deviceData).length,
+            timestamp: deviceDataMsg.timestamp,
           });
           const parsedData = parseDeviceData(deviceDataMsg);
           console.log('✅ 数据解析成功，共', parsedData.length, '个字段');
@@ -284,4 +338,39 @@ export async function broadcastToEndpoint(
 
   // 7. 更新统计数据: 递增消息数和更新 last_active_at
   await updateEndpointStats(dbEndpointId, 'message');
+}
+
+/**
+ * 发送消息到指定设备（点对点消息，Epic 6 Story 6.4 新增）
+ * @param endpointId - 端点 ID
+ * @param deviceId - 目标设备的标识符（device_id字段，如"micu"）
+ * @param message - 要发送的消息对象
+ * @throws Error - 如果设备离线（未找到连接），抛出 DEVICE_OFFLINE 错误
+ */
+export function sendToDevice(endpointId: string, deviceId: string, message: unknown): void {
+  // 1. 查找目标设备的 WebSocket 连接
+  const socket = connectionManager.getDeviceConnection(endpointId, deviceId);
+
+  if (!socket) {
+    // 设备离线或不存在
+    throw new Error('DEVICE_OFFLINE');
+  }
+
+  // 2. 序列化消息
+  const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
+
+  // 3. 发送消息到目标设备
+  try {
+    socket.send(messageStr);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[点对点消息] 发送成功, 端点: ${endpointId}, 设备: ${deviceId}, 消息长度: ${messageStr.length}`
+    );
+  } catch (error) {
+    console.error(
+      `[点对点消息] 发送失败, 端点: ${endpointId}, 设备: ${deviceId}:`,
+      error instanceof Error ? error.message : error
+    );
+    throw error;
+  }
 }

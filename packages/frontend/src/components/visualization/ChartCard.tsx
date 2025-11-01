@@ -46,7 +46,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, onEdit, onDelete }) => {
     let parsedConfig: CardConfig;
     if (typeof card.config === 'string') {
       try {
-        parsedConfig = JSON.parse(card.config);
+        parsedConfig = JSON.parse(card.config) as CardConfig;
       } catch {
         parsedConfig = card.config as CardConfig;
       }
@@ -169,6 +169,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, onEdit, onDelete }) => {
           startTime,
           endTime,
           aggregation,
+          undefined, // aggregateType - 图表暂时使用默认的平均值
           config.maxDataPoints || 1000
         );
       });
@@ -190,7 +191,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, onEdit, onDelete }) => {
 
   // 初始加载
   useEffect(() => {
-    loadChartData(true);
+    void loadChartData(true);
   }, [
     card.id,
     card.endpointId,
@@ -208,7 +209,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, onEdit, onDelete }) => {
 
     const interval = setInterval(() => {
       if (!document.hidden) {
-        loadChartData(false);
+        void loadChartData(false);
       }
     }, refreshInterval);
 
@@ -241,13 +242,20 @@ const ChartCard: React.FC<ChartCardProps> = ({ card, onEdit, onDelete }) => {
             backgroundColor: '#6a7985',
           },
         },
-        formatter: (params: any) => {
+        formatter: (params: unknown) => {
           if (!Array.isArray(params)) return '';
 
-          const time = new Date(params[0].value[0]).toLocaleString('zh-CN');
+          interface TooltipParam {
+            value: [string | number | Date, number];
+            color: string;
+            seriesName: string;
+          }
+
+          const typedParams = params as TooltipParam[];
+          const time = new Date(typedParams[0].value[0]).toLocaleString('zh-CN');
           let result = `<div style="font-weight: bold; margin-bottom: 4px;">${time}</div>`;
 
-          params.forEach((param: any) => {
+          typedParams.forEach((param) => {
             const value = param.value[1];
             const unit = config.unit || '';
             result += `

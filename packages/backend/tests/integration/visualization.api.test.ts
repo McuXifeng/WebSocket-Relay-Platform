@@ -18,7 +18,6 @@ describe('Visualization Card API Tests', () => {
   let userId: string;
   let endpointId: string;
   let deviceId: string;
-  let cardId: string;
 
   // 第二个用户用于权限测试
   let otherUserToken: string;
@@ -133,8 +132,6 @@ describe('Visualization Card API Tests', () => {
       expect(response.body.position).toEqual({ x: 0, y: 0, w: 3, h: 2 });
       expect(response.body).toHaveProperty('createdAt');
       expect(response.body).toHaveProperty('updatedAt');
-
-      cardId = response.body.id;
     });
 
     it('应该在未提供可选字段时使用默认值', async () => {
@@ -166,12 +163,10 @@ describe('Visualization Card API Tests', () => {
     });
 
     it('应该在未授权时返回401', async () => {
-      const response = await request(app)
-        .post('/api/visualization/cards')
-        .send({
-          cardType: 'statistic',
-          title: '测试卡片',
-        });
+      const response = await request(app).post('/api/visualization/cards').send({
+        cardType: 'statistic',
+        title: '测试卡片',
+      });
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error');
@@ -229,32 +224,31 @@ describe('Visualization Card API Tests', () => {
       expect(response.body.cards).toHaveLength(2);
 
       // 验证所有卡片都属于当前用户
-      response.body.cards.forEach((card: any) => {
+      interface CardResponse {
+        userId: string;
+      }
+      (response.body.cards as CardResponse[]).forEach((card) => {
         expect(card.userId).toBe(userId);
       });
     });
 
-    it(
-      '应该返回完整的卡片配置信息',
-      async () => {
-        const response = await request(app)
-          .get('/api/visualization/cards')
-          .set('Authorization', `Bearer ${authToken}`);
+    it('应该返回完整的卡片配置信息', async () => {
+      const response = await request(app)
+        .get('/api/visualization/cards')
+        .set('Authorization', `Bearer ${authToken}`);
 
-        expect(response.status).toBe(200);
-        const card = response.body.cards[0];
+      expect(response.status).toBe(200);
+      const card = response.body.cards[0];
 
-        expect(card).toHaveProperty('id');
-        expect(card).toHaveProperty('userId');
-        expect(card).toHaveProperty('cardType');
-        expect(card).toHaveProperty('title');
-        expect(card).toHaveProperty('config');
-        expect(card).toHaveProperty('position');
-        expect(card).toHaveProperty('createdAt');
-        expect(card).toHaveProperty('updatedAt');
-      },
-      10000
-    );
+      expect(card).toHaveProperty('id');
+      expect(card).toHaveProperty('userId');
+      expect(card).toHaveProperty('cardType');
+      expect(card).toHaveProperty('title');
+      expect(card).toHaveProperty('config');
+      expect(card).toHaveProperty('position');
+      expect(card).toHaveProperty('createdAt');
+      expect(card).toHaveProperty('updatedAt');
+    }, 10000);
 
     it('应该在未授权时返回401', async () => {
       const response = await request(app).get('/api/visualization/cards');
@@ -371,21 +365,17 @@ describe('Visualization Card API Tests', () => {
       expect(response.body.title).toBe('温度卡片');
     });
 
-    it(
-      '应该验证权限（用户A不能修改用户B的卡片）',
-      async () => {
-        const response = await request(app)
-          .put(`/api/visualization/cards/${testCardId}`)
-          .set('Authorization', `Bearer ${otherUserToken}`)
-          .send({
-            title: '尝试修改',
-          });
+    it('应该验证权限（用户A不能修改用户B的卡片）', async () => {
+      const response = await request(app)
+        .put(`/api/visualization/cards/${testCardId}`)
+        .set('Authorization', `Bearer ${otherUserToken}`)
+        .send({
+          title: '尝试修改',
+        });
 
-        expect(response.status).toBe(400);
-        expect(response.body).toHaveProperty('error');
-      },
-      10000
-    );
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error');
+    }, 10000);
 
     it('应该在卡片不存在时返回400', async () => {
       const response = await request(app)

@@ -118,9 +118,7 @@ export async function saveDeviceDataAsync(
       })),
     });
 
-    console.log(
-      `✅ Saved ${parsedData.length} data points for device ${deviceId}`
-    );
+    console.log(`✅ Saved ${parsedData.length} data points for device ${deviceId}`);
   } catch (error) {
     console.error('❌ Failed to save device data:', error);
     // 错误处理：记录失败但不阻塞主流程
@@ -132,9 +130,7 @@ export async function saveDeviceDataAsync(
  * @param deviceId 设备ID
  * @returns 最新数据数组
  */
-export async function getLatestDeviceData(
-  deviceId: string
-): Promise<LatestData[]> {
+export async function getLatestDeviceData(deviceId: string): Promise<LatestData[]> {
   try {
     // 使用 Prisma 原生查询获取每个 data_key 的最新记录 (MySQL 兼容版本)
     const latestData = await prisma.$queryRaw<
@@ -250,6 +246,7 @@ export interface DeviceDataHistory {
     endTime: string;
   };
   aggregation?: string;
+  aggregateType?: 'avg' | 'max' | 'min'; // 聚合类型（新增）
   records: HistoryDataRecord[];
 }
 
@@ -260,6 +257,7 @@ export interface DeviceDataHistory {
  * @param startTime 开始时间（ISO 8601格式）
  * @param endTime 结束时间（ISO 8601格式）
  * @param aggregation 数据聚合粒度（可选：'minute' | 'hour' | 'day'）
+ * @param aggregateType 聚合统计类型（可选：'avg' | 'max' | 'min'，默认'avg'）
  * @param limit 最大返回数据点数量（默认1000）
  * @returns 历史数据数组
  */
@@ -269,6 +267,7 @@ export async function getDeviceDataHistory(
   startTime: string,
   endTime: string,
   aggregation?: 'minute' | 'hour' | 'day',
+  aggregateType: 'avg' | 'max' | 'min' = 'avg',
   limit = 1000
 ): Promise<HistoryDataRecord[]> {
   try {
@@ -316,25 +315,53 @@ export async function getDeviceDataHistory(
           break;
       }
 
-      const aggregatedData = await prisma.$queryRaw<
-        {
-          time_bucket: string;
-          value: number;
-          count: bigint;
-        }[]
-      >`
-        SELECT
-          DATE_FORMAT(timestamp, ${dateFormat}) as time_bucket,
-          AVG(CAST(data_value AS DECIMAL(10,2))) as value,
-          COUNT(*) as count
-        FROM device_data
-        WHERE device_id = ${deviceId}
-          AND data_key = ${dataKey}
-          AND timestamp BETWEEN ${start} AND ${end}
-        GROUP BY time_bucket
-        ORDER BY time_bucket ASC
-        LIMIT ${limit}
-      `;
+      // 根据聚合类型构建不同的 SQL 查询
+      let aggregatedData: { time_bucket: string; value: number; count: bigint }[];
+
+      if (aggregateType === 'max') {
+        aggregatedData = await prisma.$queryRaw`
+          SELECT
+            DATE_FORMAT(timestamp, ${dateFormat}) as time_bucket,
+            MAX(CAST(data_value AS DECIMAL(10,2))) as value,
+            COUNT(*) as count
+          FROM device_data
+          WHERE device_id = ${deviceId}
+            AND data_key = ${dataKey}
+            AND timestamp BETWEEN ${start} AND ${end}
+          GROUP BY time_bucket
+          ORDER BY time_bucket ASC
+          LIMIT ${limit}
+        `;
+      } else if (aggregateType === 'min') {
+        aggregatedData = await prisma.$queryRaw`
+          SELECT
+            DATE_FORMAT(timestamp, ${dateFormat}) as time_bucket,
+            MIN(CAST(data_value AS DECIMAL(10,2))) as value,
+            COUNT(*) as count
+          FROM device_data
+          WHERE device_id = ${deviceId}
+            AND data_key = ${dataKey}
+            AND timestamp BETWEEN ${start} AND ${end}
+          GROUP BY time_bucket
+          ORDER BY time_bucket ASC
+          LIMIT ${limit}
+        `;
+      } else {
+        // 默认使用 AVG
+        aggregatedData = await prisma.$queryRaw`
+          SELECT
+            DATE_FORMAT(timestamp, ${dateFormat}) as time_bucket,
+            AVG(CAST(data_value AS DECIMAL(10,2))) as value,
+            COUNT(*) as count
+          FROM device_data
+          WHERE device_id = ${deviceId}
+            AND data_key = ${dataKey}
+            AND timestamp BETWEEN ${start} AND ${end}
+          GROUP BY time_bucket
+          ORDER BY time_bucket ASC
+          LIMIT ${limit}
+        `;
+      }
 
       return aggregatedData.map((item) => ({
         timestamp: new Date(item.time_bucket).toISOString(),

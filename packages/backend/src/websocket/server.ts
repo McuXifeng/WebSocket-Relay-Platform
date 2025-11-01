@@ -4,6 +4,7 @@ import url from 'url';
 import { PrismaClient, Endpoint } from '@prisma/client';
 import { connectionManager } from './connection-manager';
 import { broadcastToEndpoint } from './message-router';
+import { updateCommandStatus } from '../services/control-command.service';
 
 // 扩展 WebSocket 类型以包含自定义属性
 interface ExtendedWebSocket extends WebSocket {
@@ -93,6 +94,29 @@ async function handleIdentify(
 }
 
 /**
+ * 处理控制指令ACK消息（Epic 6 Story 6.4 新增）
+ */
+async function handleControlAck(message: {
+  commandId: string;
+  status: 'success' | 'failed';
+  message?: string;
+}): Promise<void> {
+  const { commandId, status, message: responseMessage } = message;
+
+  try {
+    // 更新控制指令状态
+    await updateCommandStatus(commandId, status, responseMessage);
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[控制ACK] commandId: ${commandId}, status: ${status}, message: ${responseMessage || '无'}`
+    );
+  } catch (error) {
+    console.error(`[控制ACK] 处理失败, commandId: ${commandId}:`, error);
+  }
+}
+
+/**
  * 处理 WebSocket 连接的异步逻辑
  */
 async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage): Promise<void> {
@@ -156,8 +180,8 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
     socket.endpoint = endpoint;
     socket.isAlive = true; // 初始化心跳标志
 
-    // 将连接添加到 ConnectionManager (传递数据库 UUID 用于统计更新)
-    await connectionManager.addConnection(endpointId, socket, endpoint.id);
+    // 将连接添加到 ConnectionManager (传递数据库 UUID 用于统计更新和 userId 用于告警通知)
+    await connectionManager.addConnection(endpointId, socket, endpoint.id, endpoint.user_id);
 
     // eslint-disable-next-line no-console
     console.log(`WebSocket connected to endpoint: ${endpointId}`);
@@ -202,9 +226,10 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
           messageStr = Buffer.concat(data).toString();
         }
 
-        // 【修复】提前尝试检测设备标识消息（无论转发模式）
+        // 【修复】提前尝试检测设备标识消息和控制ACK消息（无论转发模式）
         try {
           const parsedMessage = JSON.parse(messageStr) as unknown;
+
           // 检查是否为设备标识消息
           if (
             typeof parsedMessage === 'object' &&
@@ -220,6 +245,24 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
               parsedMessage as { deviceId: string; deviceName?: string }
             );
             return; // 设备标识消息不进入转发流程
+          }
+
+          // 检查是否为控制ACK消息（Epic 6 Story 6.4 新增）
+          if (
+            typeof parsedMessage === 'object' &&
+            parsedMessage !== null &&
+            'type' in parsedMessage &&
+            parsedMessage.type === 'control_ack' &&
+            'commandId' in parsedMessage &&
+            typeof parsedMessage.commandId === 'string' &&
+            'status' in parsedMessage &&
+            (parsedMessage.status === 'success' || parsedMessage.status === 'failed')
+          ) {
+            // 处理控制ACK消息
+            await handleControlAck(
+              parsedMessage as { commandId: string; status: 'success' | 'failed'; message?: string }
+            );
+            return; // 控制ACK消息不进入转发流程
           }
         } catch {
           // JSON 解析失败，继续按原转发模式处理（这是预期行为，不记录错误）
@@ -285,9 +328,14 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
       const storedEndpointId = socket.endpointId;
       const endpoint = socket.endpoint;
 
-      // 从 ConnectionManager 中移除连接 (传递数据库 UUID 用于统计更新)
+      // 从 ConnectionManager 中移除连接 (传递数据库 UUID 用于统计更新和 userId 用于告警通知)
       if (storedEndpointId && endpoint) {
-        await connectionManager.removeConnection(storedEndpointId, socket, endpoint.id);
+        await connectionManager.removeConnection(
+          storedEndpointId,
+          socket,
+          endpoint.id,
+          endpoint.user_id
+        );
         // eslint-disable-next-line no-console
         console.log(`WebSocket ${reason} from endpoint: ${storedEndpointId}`);
       }

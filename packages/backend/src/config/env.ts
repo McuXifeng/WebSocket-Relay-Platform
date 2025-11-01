@@ -34,6 +34,28 @@ export const config = {
 
   // 日志配置
   logLevel: process.env.LOG_LEVEL || 'debug',
+
+  // 告警系统配置
+  // SMTP 邮件配置（可选，如果未配置则只发送 WebSocket 通知）
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER || '',
+      pass: process.env.SMTP_PASSWORD || '',
+    },
+    from: {
+      email: process.env.SMTP_FROM_EMAIL || '',
+      name: process.env.SMTP_FROM_NAME || 'WebSocket Relay Alert System',
+    },
+  },
+
+  // 告警防抖时间（分钟）
+  alertDebounceMinutes: parseInt(process.env.ALERT_DEBOUNCE_MINUTES || '5', 10),
+
+  // 告警历史保留天数
+  alertRetentionDays: parseInt(process.env.ALERT_RETENTION_DAYS || '30', 10),
 };
 
 /**

@@ -128,3 +128,101 @@ export async function getCurrentUser(
     next(error);
   }
 }
+
+/**
+ * 更新用户个人信息控制器
+ *
+ * @route PUT /api/auth/profile
+ * @param req - Express 请求对象（需要携带认证信息）
+ * @param res - Express 响应对象
+ * @param next - Express 下一个中间件函数
+ */
+export async function updateProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    // 从 req.user 获取 userId（由 authenticateToken 中间件附加）
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      throw new AppError('UNAUTHORIZED', '用户认证信息无效', 401);
+    }
+
+    // 从请求体提取更新数据
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const { email } = req.body;
+
+    if (!email) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      throw new AppError('VALIDATION_ERROR', '邮箱地址不能为空', 400);
+    }
+
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email as string)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      throw new AppError('VALIDATION_ERROR', '邮箱格式不正确', 400);
+    }
+
+    // 查询数据库
+    const prisma = (await import('../config/database.js')).default;
+
+    // 检查邮箱是否已被其他用户使用
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        email: email,
+        NOT: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          id: userId,
+        },
+      },
+    });
+
+    if (existingUser) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      throw new AppError('EMAIL_EXISTS', '该邮箱已被其他用户使用', 409);
+    }
+
+    // 更新用户信息
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const updatedUser = await prisma.user.update({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        id: userId,
+      },
+      data: {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        email: email,
+      },
+    });
+
+    // 返回 UserPublic（不含 password_hash）
+    const userPublic: UserPublic = {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      id: updatedUser.id,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      username: updatedUser.username,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      email: updatedUser.email,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      is_admin: updatedUser.is_admin,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      created_at: updatedUser.created_at,
+    };
+
+    res.status(200).json({
+      data: {
+        user: userPublic,
+      },
+    });
+  } catch (error) {
+    // 将错误传递给错误处理中间件
+    next(error);
+  }
+}

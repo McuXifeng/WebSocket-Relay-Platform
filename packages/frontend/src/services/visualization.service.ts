@@ -111,6 +111,7 @@ export interface DeviceDataHistoryResponse {
     endTime: string;
   };
   aggregation?: string;
+  aggregateType?: 'avg' | 'max' | 'min'; // 聚合类型（新增）
   records: HistoricalDataRecord[];
 }
 
@@ -194,6 +195,7 @@ export async function getDeviceDataKeys(
  * @param startTime - 开始时间（ISO 8601格式）
  * @param endTime - 结束时间（ISO 8601格式）
  * @param aggregation - 数据聚合粒度（可选：'minute' | 'hour' | 'day'）
+ * @param aggregateType - 聚合统计类型（可选：'avg' | 'max' | 'min'）
  * @param limit - 最大返回数据点数量（可选，默认1000）
  * @returns 历史数据记录
  */
@@ -204,6 +206,7 @@ export async function getDeviceDataHistory(
   startTime: string,
   endTime: string,
   aggregation?: 'minute' | 'hour' | 'day',
+  aggregateType?: 'avg' | 'max' | 'min',
   limit?: number
 ): Promise<DeviceDataHistoryResponse> {
   // 构建查询参数
@@ -217,6 +220,10 @@ export async function getDeviceDataHistory(
     params.aggregation = aggregation;
   }
 
+  if (aggregateType) {
+    params.aggregateType = aggregateType;
+  }
+
   if (limit !== undefined) {
     params.limit = limit;
   }
@@ -227,5 +234,35 @@ export async function getDeviceDataHistory(
     { params }
   );
 
+  return response;
+}
+
+/**
+ * 获取端点的设备列表
+ *
+ * @param endpointId - Endpoint ID
+ * @returns 设备列表
+ */
+export async function getEndpointDevices(
+  endpointId: string
+): Promise<{ devices: Array<{ id: string; device_id: string; custom_name: string }> }> {
+  const response = await api.get<{
+    devices: Array<{ id: string; device_id: string; custom_name: string }>;
+  }>(`/visualization/endpoints/${endpointId}/devices`);
+  return response;
+}
+
+/**
+ * 获取端点设备的实时在线状态（通过WebSocket连接检测）
+ *
+ * @param endpointId - Endpoint ID
+ * @returns 设备在线状态字典（deviceId -> isOnline）
+ */
+export async function getDevicesOnlineStatus(
+  endpointId: string
+): Promise<{ onlineStatus: Record<string, boolean> }> {
+  const response = await api.get<{ onlineStatus: Record<string, boolean> }>(
+    `/visualization/endpoints/${endpointId}/devices/online-status`
+  );
   return response;
 }

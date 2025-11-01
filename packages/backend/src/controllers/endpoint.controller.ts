@@ -7,12 +7,10 @@ import type { Request, Response, NextFunction } from 'express';
 import * as endpointService from '../services/endpoint.service.js';
 import * as statsService from '../services/stats.service.js';
 import * as messageService from '../services/message.service.js';
-import {
-  getLatestDeviceData,
-  getDeviceDataKeys,
-} from '../services/device-data.service.js';
+import { getLatestDeviceData, getDeviceDataKeys } from '../services/device-data.service.js';
 import { AppError } from '../middleware/error-handler.middleware.js';
 import { PrismaClient } from '@prisma/client';
+import { connectionManager } from '../websocket/connection-manager';
 import type {
   CreateEndpointRequest,
   CreateEndpointResponse,
@@ -332,7 +330,7 @@ export async function getEndpointDevices(
 
     // 1. 验证端点存在且属于当前用户
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    await endpointService.getEndpointById(endpointId, userId);
+    const endpoint = await endpointService.getEndpointById(endpointId, userId);
 
     // 2. 查询设备列表
     const devices = await prisma.device.findMany({
@@ -340,17 +338,23 @@ export async function getEndpointDevices(
       orderBy: { last_connected_at: 'desc' },
     });
 
-    // 3. 计算在线状态
-    const now = Date.now();
-    const devicesWithStatus = devices.map((device) => ({
-      id: device.id,
-      endpoint_id: device.endpoint_id,
-      device_id: device.device_id,
-      custom_name: device.custom_name,
-      is_online: now - new Date(device.last_connected_at).getTime() < 30000,
-      last_connected_at: device.last_connected_at.toISOString(),
-      created_at: device.created_at.toISOString(),
-    }));
+    // 3. 计算在线状态（实时检测WebSocket连接）
+    const devicesWithStatus = devices.map((device) => {
+      // 通过ConnectionManager检查设备是否有活跃的WebSocket连接
+      const connection = connectionManager.getDeviceConnection(
+        endpoint.endpoint_id,
+        device.device_id
+      );
+      return {
+        id: device.id,
+        endpoint_id: device.endpoint_id,
+        device_id: device.device_id,
+        custom_name: device.custom_name,
+        is_online: connection !== null, // 实时检测：有连接则在线，无连接则离线
+        last_connected_at: device.last_connected_at.toISOString(),
+        created_at: device.created_at.toISOString(),
+      };
+    });
 
     // 4. 构建响应数据
     const response: GetDevicesResponse = {

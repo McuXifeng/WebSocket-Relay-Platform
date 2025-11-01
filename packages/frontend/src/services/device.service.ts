@@ -36,3 +36,30 @@ export function updateDeviceName(
     custom_name: customName,
   });
 }
+
+/**
+ * 获取设备的可用数据字段列表
+ * @param endpointId - 端点 ID
+ * @param deviceId - 设备 ID
+ * @returns 数据字段列表
+ */
+export interface DataKey {
+  key: string;
+  type: string;
+  unit: string | null;
+  lastSeen: Date;
+}
+
+export interface DataKeysResponse {
+  dataKeys: DataKey[];
+}
+
+export async function getDeviceDataKeys(
+  endpointId: string,
+  deviceId: string
+): Promise<DataKeysResponse> {
+  const response = await api.get<DataKeysResponse>(
+    `/endpoints/${endpointId}/devices/${deviceId}/data-keys`
+  );
+  return response;
+}

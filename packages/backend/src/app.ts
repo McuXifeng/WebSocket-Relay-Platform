@@ -5,6 +5,9 @@ import authRouter from './routes/auth.route.js';
 import endpointRouter from './routes/endpoint.route.js';
 import adminRouter from './routes/admin.route.js';
 import visualizationRouter from './routes/visualization.routes.js';
+import controlRouter from './routes/control.routes.js';
+import alertRuleRouter from './routes/alert-rule.routes.js';
+import alertHistoryRouter from './routes/alert-history.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.middleware.js';
 import { config } from './config/env.js';
 
@@ -45,6 +48,15 @@ function createApp(): Express {
 
   // 挂载可视化路由到 /api/visualization 前缀下 (Epic 6 新增)
   app.use('/api/visualization', visualizationRouter);
+
+  // 挂载控制指令路由到 /api/endpoints 前缀下 (Epic 6 Story 6.4 新增)
+  app.use('/api/endpoints', controlRouter);
+
+  // 挂载告警规则路由到 /api/alert-rules 前缀下 (Epic 6 Story 6.5 新增)
+  app.use('/api/alert-rules', alertRuleRouter);
+
+  // 挂载告警历史路由到 /api/alert-history 前缀下 (Epic 6 Story 6.5 新增)
+  app.use('/api/alert-history', alertHistoryRouter);
 
   // 404 Not Found 处理（必须在所有路由之后，错误处理之前）
   app.use(notFoundHandler);

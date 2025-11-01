@@ -1,11 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Descriptions, Row, Col, Statistic, Button, Spin, Space, message } from 'antd';
-import { UserOutlined, CalendarOutlined } from '@ant-design/icons';
+import {
+  Card,
+  Descriptions,
+  Row,
+  Col,
+  Statistic,
+  Button,
+  Spin,
+  Space,
+  message,
+  Modal,
+  Form,
+  Input,
+} from 'antd';
+import { UserOutlined, CalendarOutlined, EditOutlined } from '@ant-design/icons';
 import { format, differenceInDays } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { getEndpoints } from '@/services/endpoint.service';
+import { api } from '@/services/api';
 
 /**
  * ProfilePage 组件 - 个人中心页面
@@ -27,9 +41,11 @@ import { getEndpoints } from '@/services/endpoint.service';
  */
 function ProfilePage() {
   const navigate = useNavigate();
-  const { user, logout, loading: authLoading } = useAuth();
+  const { user, logout, loading: authLoading, refreshUser } = useAuth();
   const [endpointCount, setEndpointCount] = useState<number>(0);
   const [endpointsLoading, setEndpointsLoading] = useState<boolean>(true);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [form] = Form.useForm();
 
   /**
    * 加载端点列表（仅用于计算数量）
@@ -60,6 +76,39 @@ function ProfilePage() {
     logout(); // 清除 localStorage 和 AuthContext 状态
     void message.success('已退出登录');
     void navigate('/login');
+  };
+
+  /**
+   * 打开编辑邮箱对话框
+   */
+  const handleEditEmail = () => {
+    form.setFieldsValue({ email: user?.email });
+    setIsEditModalVisible(true);
+  };
+
+  /**
+   * 提交邮箱修改
+   */
+  const handleSubmitEmail = async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const values = await form.validateFields();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      await api.put('/auth/profile', { email: values.email });
+      void message.success('邮箱更新成功');
+      setIsEditModalVisible(false);
+      // 刷新用户信息
+      if (refreshUser) {
+        await refreshUser();
+      }
+    } catch (error) {
+      if ((error as { errorFields?: unknown[] }).errorFields) {
+        // 表单验证失败
+        return;
+      }
+      void message.error('邮箱更新失败');
+      console.error('Failed to update email:', error);
+    }
   };
 
   /**
@@ -97,7 +146,15 @@ function ProfilePage() {
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {/* 用户信息卡片 */}
-        <Card title="个人信息" bordered={false}>
+        <Card
+          title="个人信息"
+          bordered={false}
+          extra={
+            <Button type="link" icon={<EditOutlined />} onClick={handleEditEmail}>
+              编辑邮箱
+            </Button>
+          }
+        >
           <Descriptions bordered column={1}>
             <Descriptions.Item label="用户名">{user.username}</Descriptions.Item>
             <Descriptions.Item label="邮箱">{user.email}</Descriptions.Item>
@@ -145,6 +202,29 @@ function ProfilePage() {
           </Button>
         </Card>
       </Space>
+
+      {/* 编辑邮箱对话框 */}
+      <Modal
+        title="编辑邮箱"
+        open={isEditModalVisible}
+        onOk={() => void handleSubmitEmail()}
+        onCancel={() => setIsEditModalVisible(false)}
+        okText="确定"
+        cancelText="取消"
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item
+            name="email"
+            label="邮箱地址"
+            rules={[
+              { required: true, message: '请输入邮箱地址' },
+              { type: 'email', message: '请输入有效的邮箱地址' },
+            ]}
+          >
+            <Input placeholder="请输入邮箱地址" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
