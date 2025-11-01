@@ -91,10 +91,12 @@ const DataHistoryTab: React.FC<DataHistoryTabProps> = ({ endpointId }) => {
     void loadDevicesOnlineStatus(); // 加载初始在线状态
   }, [endpointId]);
 
-  // 定期刷新设备在线状态（每5秒）
+  // 🔧 定期刷新设备列表和在线状态（每5秒）
+  // 解决问题：当新设备首次发送消息时，设备列表能自动更新，无需手动刷新页面
   useEffect(() => {
     const interval = setInterval(() => {
-      void loadDevicesOnlineStatus();
+      void loadDevices(true); // 静默刷新设备列表（不显示 loading 状态）
+      void loadDevicesOnlineStatus(); // 刷新在线状态
     }, 5000); // 5秒刷新一次
 
     return () => clearInterval(interval);
@@ -137,16 +139,24 @@ const DataHistoryTab: React.FC<DataHistoryTabProps> = ({ endpointId }) => {
   }, [selectedDevice]);
 
   // 加载设备列表
-  const loadDevices = async () => {
-    setDevicesLoading(true);
+  const loadDevices = async (silent = false) => {
+    // silent=true 时不显示 loading 状态（用于自动刷新）
+    if (!silent) {
+      setDevicesLoading(true);
+    }
     try {
       const response = await visualizationService.getEndpointDevices(endpointId);
       setDevices(response.devices || []);
     } catch (error) {
-      void message.error('加载设备列表失败');
+      // 静默刷新时不显示错误提示，避免干扰用户
+      if (!silent) {
+        void message.error('加载设备列表失败');
+      }
       console.error('Failed to load devices:', error);
     } finally {
-      setDevicesLoading(false);
+      if (!silent) {
+        setDevicesLoading(false);
+      }
     }
   };
 
@@ -186,12 +196,23 @@ const DataHistoryTab: React.FC<DataHistoryTabProps> = ({ endpointId }) => {
     setLoading(true);
     try {
       const [startTime, endTime] = timeRange;
+
+      // 🔧 修复：自动将结束时间更新为当前时刻，确保能查询到最新数据
+      // 只有当结束时间早于当前时刻时才更新
+      const now = dayjs();
+      const actualEndTime = endTime.isBefore(now) ? now : endTime;
+
+      // 如果结束时间被更新了，同步更新状态（让用户看到实际查询的时间范围）
+      if (!actualEndTime.isSame(endTime)) {
+        setTimeRange([startTime, actualEndTime]);
+      }
+
       const response = await visualizationService.getDeviceDataHistory(
         endpointId,
         selectedDevice,
         selectedDataKey,
         startTime.toISOString(),
-        endTime.toISOString(),
+        actualEndTime.toISOString(),
         aggregation === 'none' ? undefined : aggregation,
         aggregation === 'none' ? undefined : aggregateType
       );
