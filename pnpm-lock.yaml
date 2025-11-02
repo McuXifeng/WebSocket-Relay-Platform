@@ -127,7 +127,7 @@ importers:
         specifier: ^8.18.1
         version: 8.18.1
       artillery:
-        specifier: ^2.0.26
+        specifier: 2.0.26
         version: 2.0.26(@types/node@20.19.23)
       artillery-plugin-metrics-by-endpoint:
         specifier: ^1.20.0

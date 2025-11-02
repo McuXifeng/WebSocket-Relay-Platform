@@ -53,7 +53,7 @@ scenarios:
     flow:
       # 步骤 1: 建立 WebSocket 连接
       - connect:
-          url: "ws://localhost:3001/ws/perf-test-endpoint-1"
+          url: "ws://localhost:3001/ws/test-ep-001"
 
       # 步骤 2: 等待连接建立
       - think: 1

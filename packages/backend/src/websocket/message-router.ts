@@ -6,7 +6,7 @@
 
 import { WebSocket } from 'ws';
 import { connectionManager } from './connection-manager';
-import { updateEndpointStats } from '../services/stats.service';
+import { updateEndpointStatsBatched } from '../services/stats.service';
 import { saveMessageAsync } from '../services/message.service';
 import {
   parseDeviceData,
@@ -336,8 +336,8 @@ export async function broadcastToEndpoint(
     }
   });
 
-  // 7. 更新统计数据: 递增消息数和更新 last_active_at
-  await updateEndpointStats(dbEndpointId, 'message');
+  // 7. 更新统计数据: 递增消息数和更新 last_active_at（使用批量模式）
+  updateEndpointStatsBatched(dbEndpointId, 'message');
 }
 
 /**

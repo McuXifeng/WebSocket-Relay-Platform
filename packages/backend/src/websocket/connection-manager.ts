@@ -5,7 +5,7 @@
  */
 
 import { WebSocket } from 'ws';
-import { updateEndpointStats } from '../services/stats.service';
+import { updateEndpointStatsBatched } from '../services/stats.service';
 
 /**
  * ConnectionManager 类
@@ -24,6 +24,7 @@ class ConnectionManager {
    * @param dbEndpointId - 端点的数据库 UUID (用于更新统计数据)
    * @param userId - 用户 ID (可选，用于告警通知推送，Epic 6 Story 6.5 新增)
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async addConnection(
     endpointId: string,
     socket: WebSocket,
@@ -52,8 +53,8 @@ class ConnectionManager {
       }
     }
 
-    // 更新统计数据
-    await updateEndpointStats(dbEndpointId, 'connect');
+    // 更新统计数据（使用批量模式，减少数据库写入）
+    updateEndpointStatsBatched(dbEndpointId, 'connect');
   }
 
   /**
@@ -63,6 +64,7 @@ class ConnectionManager {
    * @param dbEndpointId - 端点的数据库 UUID (用于更新统计数据)
    * @param userId - 用户 ID (可选，Epic 6 Story 6.5 新增)
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async removeConnection(
     endpointId: string,
     socket: WebSocket,
@@ -92,8 +94,8 @@ class ConnectionManager {
       }
     }
 
-    // 更新统计数据
-    await updateEndpointStats(dbEndpointId, 'disconnect');
+    // 更新统计数据（使用批量模式，减少数据库写入）
+    updateEndpointStatsBatched(dbEndpointId, 'disconnect');
   }
 
   /**

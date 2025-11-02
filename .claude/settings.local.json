@@ -176,7 +176,14 @@
       "Bash(/Users/xifeng/test/simple-alert-test.sh)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiOTMyODFkYi0xNWQ0LTQwZGQtYTkzOC02NjljM2M2ODU5OWIiLCJ1c2VybmFtZSI6ImFkbWluIiwiaXNBZG1pbiI6dHJ1ZSwiaWF0IjoxNzYyMDI1MjIzLCJleHAiOjE3NjI2MzAwMjN9.N_ec75cRfYFqTjdl5WDSSrcFgiwasquZtdOKiww62Uc\")",
       "Bash(/Users/xifeng/test/test-email-mark-read.sh:*)",
-      "Bash(timeout 30 node:*)"
+      "Bash(timeout 30 node:*)",
+      "Bash(git restore:*)",
+      "Bash(npx artillery:*)",
+      "Bash(tee:*)",
+      "Bash(./tests/performance/run-perf-analysis-auto.sh:*)",
+      "Bash(./tests/performance/run-db-perf-analysis.sh:*)",
+      "Bash(rm:*)",
+      "Bash(timeout 180 node:*)"
     ],
     "deny": [],
     "ask": []

@@ -7,10 +7,14 @@ export default {
   extensionsToTreatAsEsm: ['.ts'],
 
   // 模块名映射 (对应 tsconfig.json 的 paths)
+  // 注意: 更具体的规则必须放在前面
   moduleNameMapper: {
+    // 处理 @ 别名中的 .js 扩展名 (必须在通用规则之前)
+    '^@/(.*)\\.js$': '<rootDir>/src/$1',
+    // 通用 @ 别名映射
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@shared/(.*)$': '<rootDir>/../shared/src/$1',
-    // 处理 .js 导入映射到 .ts 文件 (ESM 兼容)
+    // 处理相对路径中的 .js 导入映射到 .ts 文件 (ESM 兼容)
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 

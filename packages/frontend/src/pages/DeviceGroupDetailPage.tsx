@@ -50,6 +50,7 @@ import type {
   DataKeyAggregation,
   Device,
   SendBatchControlRequest,
+  BatchControlStatus,
   ExportGroupDataParams,
 } from '@websocket-relay/shared';
 
@@ -87,7 +88,7 @@ function DeviceGroupDetailPage() {
   const [isBatchControlModalOpen, setIsBatchControlModalOpen] = useState<boolean>(false);
   const [batchControlForm] = Form.useForm();
   const [batchControlLoading, setBatchControlLoading] = useState<boolean>(false);
-  const [batchStatus, setBatchStatus] = useState<any>(null);
+  const [batchStatus, setBatchStatus] = useState<BatchControlStatus | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
   // 批量导出 Modal
@@ -215,12 +216,15 @@ function DeviceGroupDetailPage() {
   const handleSendBatchControl = async () => {
     if (!groupId) return;
     try {
-      const values = await batchControlForm.validateFields();
+      const values = (await batchControlForm.validateFields()) as {
+        command_type: string;
+        command_params: string;
+      };
       setBatchControlLoading(true);
 
       const request: SendBatchControlRequest = {
         command_type: values.command_type,
-        command_params: JSON.parse(values.command_params || '{}'),
+        command_params: JSON.parse(values.command_params || '{}') as Record<string, unknown>,
       };
 
       const response = await sendBatchControlCommand(groupId, request);
@@ -246,23 +250,25 @@ function DeviceGroupDetailPage() {
     let pollCount = 0;
     const maxPolls = 20; // 最多轮询20次（约1分钟）
 
-    const interval = setInterval(async () => {
-      if (!groupId) return;
-      try {
-        const status = await getBatchControlStatus(groupId, batchIdToQuery);
-        setBatchStatus(status);
+    const interval = setInterval(() => {
+      void (async () => {
+        if (!groupId) return;
+        try {
+          const status = await getBatchControlStatus(groupId, batchIdToQuery);
+          setBatchStatus(status);
 
-        // 如果所有指令都已完成（成功、失败或超时），停止轮询
-        if (status.pending_count === 0 || pollCount >= maxPolls) {
+          // 如果所有指令都已完成（成功、失败或超时），停止轮询
+          if (status.pending_count === 0 || pollCount >= maxPolls) {
+            clearInterval(interval);
+            setPollingInterval(null);
+          }
+        } catch (error) {
+          console.error('查询批量控制状态失败:', error);
           clearInterval(interval);
           setPollingInterval(null);
         }
-      } catch (error) {
-        console.error('查询批量控制状态失败:', error);
-        clearInterval(interval);
-        setPollingInterval(null);
-      }
-      pollCount++;
+        pollCount++;
+      })();
     }, 3000); // 每3秒轮询一次
 
     setPollingInterval(interval);
@@ -282,7 +288,10 @@ function DeviceGroupDetailPage() {
   const handleExportData = async () => {
     if (!groupId) return;
     try {
-      const values = await exportForm.validateFields();
+      const values = (await exportForm.validateFields()) as {
+        dateRange?: [{ toISOString: () => string }, { toISOString: () => string }];
+        data_keys?: string[];
+      };
       setExportLoading(true);
 
       const params: ExportGroupDataParams = {
@@ -336,7 +345,7 @@ function DeviceGroupDetailPage() {
           type="text"
           danger
           icon={<DeleteOutlined />}
-          onClick={() => handleRemoveDevice(record.id)}
+          onClick={() => void handleRemoveDevice(record.id)}
         >
           移除
         </Button>
@@ -406,7 +415,7 @@ function DeviceGroupDetailPage() {
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {/* 返回按钮和标题 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/device-groups')}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => void navigate('/device-groups')}>
             返回列表
           </Button>
           <Title level={3} style={{ margin: 0 }}>
@@ -435,7 +444,11 @@ function DeviceGroupDetailPage() {
         <Card
           title="设备成员"
           extra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenAddDeviceModal}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => void handleOpenAddDeviceModal()}
+            >
               添加设备
             </Button>
           }
@@ -456,7 +469,7 @@ function DeviceGroupDetailPage() {
             <Space>
               <Button
                 icon={<ReloadOutlined />}
-                onClick={() => fetchGroupDataAggregation()}
+                onClick={() => void fetchGroupDataAggregation()}
                 loading={aggregationLoading}
               >
                 刷新
@@ -514,7 +527,7 @@ function DeviceGroupDetailPage() {
       <Modal
         title="添加设备到分组"
         open={isAddDeviceModalOpen}
-        onOk={handleAddDevices}
+        onOk={() => void handleAddDevices()}
         onCancel={() => setIsAddDeviceModalOpen(false)}
         okText="添加"
         cancelText="取消"
@@ -523,7 +536,7 @@ function DeviceGroupDetailPage() {
         <Spin spinning={devicesLoading}>
           <Checkbox.Group
             style={{ width: '100%' }}
-            onChange={(values) => setSelectedDeviceIds(values as string[])}
+            onChange={(values) => setSelectedDeviceIds(values)}
             value={selectedDeviceIds}
           >
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -542,7 +555,7 @@ function DeviceGroupDetailPage() {
       <Modal
         title="批量控制指令"
         open={isBatchControlModalOpen}
-        onOk={handleSendBatchControl}
+        onOk={() => void handleSendBatchControl()}
         onCancel={() => {
           setIsBatchControlModalOpen(false);
           if (pollingInterval) clearInterval(pollingInterval);
@@ -605,7 +618,7 @@ function DeviceGroupDetailPage() {
       <Modal
         title="批量导出设备数据"
         open={isExportModalOpen}
-        onOk={handleExportData}
+        onOk={() => void handleExportData()}
         onCancel={() => setIsExportModalOpen(false)}
         confirmLoading={exportLoading}
         width={600}
@@ -627,7 +640,10 @@ function DeviceGroupDetailPage() {
             />
           </Form.Item>
           <Form.Item label="导出格式" name="format">
-            <Radio.Group value={exportFormat} onChange={(e) => setExportFormat(e.target.value)}>
+            <Radio.Group
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as 'csv' | 'json')}
+            >
               <Radio value="csv">CSV</Radio>
               <Radio value="json">JSON</Radio>
             </Radio.Group>

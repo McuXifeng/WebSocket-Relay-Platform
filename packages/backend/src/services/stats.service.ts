@@ -1,5 +1,6 @@
 import prisma from '@/config/database';
 import type { EndpointStatsResponse } from '@websocket-relay/shared';
+import { statsBatchUpdater } from './stats-batch-updater.js';
 
 /**
  * 更新端点统计数据
@@ -66,16 +67,49 @@ export async function updateEndpointStats(
 }
 
 /**
+ * 更新端点统计数据（批量模式）
+ *
+ * 性能优化版本：使用批量更新器累积多次更新，定期批量刷新到数据库
+ * 相比 updateEndpointStats，减少数据库写入 50-100 倍
+ *
+ * @param endpointId - 端点的数据库 ID (UUID)
+ * @param action - 统计操作类型: 'connect' | 'disconnect' | 'message'
+ *
+ * @example
+ * // 使用批量更新（推荐）
+ * updateEndpointStatsBatched('uuid', 'message');
+ *
+ * @see statsBatchUpdater
+ */
+export function updateEndpointStatsBatched(
+  endpointId: string,
+  action: 'connect' | 'disconnect' | 'message'
+): void {
+  try {
+    statsBatchUpdater.addUpdate(endpointId, action);
+  } catch (error) {
+    // 记录错误但不抛出，确保 WebSocket 服务不受影响
+    console.error(
+      `[stats.service] Failed to add batched update (${action}) for endpoint ${endpointId}:`,
+      error
+    );
+  }
+}
+
+/**
  * 查询端点统计数据
  *
  * @param endpointId - 端点数据库 UUID (Endpoint.id)
  * @returns 统计数据,如果不存在返回默认值
  */
 export async function getEndpointStats(endpointId: string): Promise<EndpointStatsResponse> {
-  // 查询统计记录,同时包含 endpoint 关联以获取 last_active_at
+  // 查询统计记录，使用 select 仅查询必需字段（Story 9.2 优化）
   const stats = await prisma.endpointStats.findUnique({
     where: { endpoint_id: endpointId },
-    include: {
+    select: {
+      current_connections: true,
+      total_connections: true,
+      total_messages: true,
       endpoint: {
         select: { last_active_at: true },
       },

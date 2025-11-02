@@ -12,13 +12,42 @@ import { config } from './env.js';
  *
  * 开发环境：启用查询日志（query, error, warn）
  * 生产环境：仅记录错误（error）
+ * 性能分析模式：详细记录查询时间和参数
  *
  * 注意：在 Prisma schema 没有定义模型时，PrismaClient 类型推断会有问题
  * 这是正常的，当后续故事定义数据库表结构后，类型会自动正确推断
  */
+
+// 检查是否启用性能分析模式
+const isProfilingMode = process.env.PRISMA_LOG_QUERIES === 'true';
+
 const prisma = new PrismaClient({
-  log: config.isDevelopment ? ['query', 'error', 'warn'] : ['error'],
+  log:
+    config.isDevelopment || isProfilingMode
+      ? [
+          { emit: 'event', level: 'query' },
+          { emit: 'stdout', level: 'error' },
+          { emit: 'stdout', level: 'warn' },
+        ]
+      : ['error'],
 });
+
+// 性能分析模式: 监听查询事件，记录执行时间
+if (isProfilingMode || config.isDevelopment) {
+  prisma.$on(
+    'query' as never,
+    (e: { query: string; params: string; duration: number; target: string }) => {
+      // 只记录慢查询 (> 10ms) 或所有查询(如果启用详细日志)
+      const slowQueryThreshold = 10; // ms
+      if (e.duration > slowQueryThreshold) {
+        console.log(`🐢 [Slow Query] ${e.duration}ms - ${e.query.substring(0, 100)}`);
+        console.log(`   Params: ${e.params}`);
+      } else if (isProfilingMode) {
+        console.log(`⚡ [Query] ${e.duration}ms - ${e.query.substring(0, 80)}`);
+      }
+    }
+  );
+}
 
 /**
  * 优雅关闭数据库连接
