@@ -154,6 +154,13 @@ function MainLayout() {
             void navigate('/docs/developer');
           },
         },
+        {
+          key: 'docs-protocol',
+          label: '下位机通信协议',
+          onClick: () => {
+            void navigate('/docs/protocol');
+          },
+        },
       ],
     },
     {

@@ -7,6 +7,7 @@ import EndpointDetailPage from './pages/EndpointDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import UserGuidePage from './pages/UserGuidePage';
 import DeveloperGuidePage from './pages/DeveloperGuidePage';
+import ProtocolSpecificationPage from './pages/ProtocolSpecificationPage';
 import VisualizationDashboardPage from './pages/VisualizationDashboardPage';
 import DeviceGroupsPage from './pages/DeviceGroupsPage';
 import DeviceGroupDetailPage from './pages/DeviceGroupDetailPage';
@@ -78,6 +79,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <DeveloperGuidePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'docs/protocol',
+        element: (
+          <ProtectedRoute>
+            <ProtocolSpecificationPage />
           </ProtectedRoute>
         ),
       },

@@ -259,7 +259,9 @@ export async function batchMarkAlertAsRead(
  * @throws {AxiosError} API 请求失败时抛出错误
  */
 export async function markAllAlertsAsRead(endpointId?: string): Promise<{ count: number }> {
-  const data: MarkAlertAsReadRequest = endpointId ? { endpoint_id: endpointId } : {};
+  const data: MarkAlertAsReadRequest = endpointId
+    ? { endpoint_id: endpointId }
+    : { endpoint_id: undefined };
   return batchMarkAlertAsRead(data);
 }
 

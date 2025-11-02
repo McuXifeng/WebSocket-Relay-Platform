@@ -1,0 +1,86 @@
+/**
+ * MobileAlertCard 样式
+ *
+ * 触摸友好设计:
+ * - 最小触摸目标: 44x44 px
+ * - 触摸反馈动画
+ * - 响应式字体大小
+ */
+
+/* 卡片容器 */
+.cardContainer {
+  position: relative;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+/* 左侧色条 */
+.colorBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 1;
+}
+
+/* 操作按钮容器 */
+.actionsContainer {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  transition: right 0.3s ease;
+  z-index: 2;
+}
+
+/* 操作按钮基础样式 */
+.actionButton {
+  width: 80px;
+  height: 100%;
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px; /* 触摸友好尺寸 */
+  transition: all 0.2s ease;
+}
+
+/* 触摸反馈 */
+.actionButton:active {
+  opacity: 0.7;
+  transform: scale(0.98);
+}
+
+/* 已读按钮 */
+.readButton {
+  background-color: #52c41a;
+}
+
+.readButton:hover {
+  background-color: #73d13d;
+}
+
+/* 删除按钮 */
+.deleteButton {
+  background-color: #ff4d4f;
+}
+
+.deleteButton:hover {
+  background-color: #ff7875;
+}
+
+/* 移动端响应式媒体查询 */
+@media (max-width: 768px) {
+  .cardContainer {
+    -webkit-tap-highlight-color: transparent; /* 移除移动端点击高亮 */
+  }
+
+  /* 确保字体大小适配移动端 */
+  .actionButton {
+    font-size: 14px;
+  }
+}

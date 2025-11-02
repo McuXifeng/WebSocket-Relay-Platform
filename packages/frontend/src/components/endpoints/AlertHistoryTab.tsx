@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Table, Tag, Button, Space, DatePicker, Select, message } from 'antd';
+import { Table, Tag, Button, Space, DatePicker, Select, message, Grid, Empty } from 'antd';
 import { CheckOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PullToRefresh } from 'antd-mobile';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import type { AlertHistoryWithDetails, AlertLevel, AlertStatus } from '@websocket-relay/shared';
@@ -11,6 +12,11 @@ import {
   getUnreadAlertCount,
 } from '../../services/alert.service';
 import type { ColumnsType } from 'antd/es/table';
+import MobileAlertCard from './MobileAlertCard';
+import MobileBottomBar from './MobileBottomBar';
+import MobileFilterPanel from './MobileFilterPanel';
+
+const { useBreakpoint } = Grid;
 
 const { RangePicker } = DatePicker;
 
@@ -31,6 +37,10 @@ interface AlertHistoryTabProps {
  * - 表格排序和分页
  */
 function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
+  // 响应式布局检测 (768px 为移动端/PC端分界线)
+  const screens = useBreakpoint();
+  const isMobile = !screens.md; // md 断点为 768px
+
   const [alerts, setAlerts] = useState<AlertHistoryWithDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -50,6 +60,9 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
     start_time?: string;
     end_time?: string;
   }>({});
+
+  // 移动端筛选面板显示状态
+  const [filterPanelVisible, setFilterPanelVisible] = useState(false);
 
   // 加载未读数量
   const fetchUnreadCount = async () => {
@@ -85,6 +98,11 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 下拉刷新处理函数
+  const handlePullRefresh = async () => {
+    await fetchAlerts(pagination.current, pagination.pageSize);
   };
 
   useEffect(() => {
@@ -225,67 +243,69 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
   ];
 
   return (
-    <div>
-      {/* 筛选条件 */}
-      <div style={{ marginBottom: 16 }}>
-        <Space wrap>
-          <Select
-            placeholder="告警级别"
-            allowClear
-            style={{ width: 120 }}
-            onChange={(value: string | undefined) =>
-              setFilters((prev) => ({ ...prev, alert_level: value }))
-            }
-          >
-            <Select.Option value="info">信息</Select.Option>
-            <Select.Option value="warning">警告</Select.Option>
-            <Select.Option value="critical">严重</Select.Option>
-          </Select>
-
-          <Select
-            placeholder="状态"
-            allowClear
-            style={{ width: 120 }}
-            onChange={(value: string | undefined) =>
-              setFilters((prev) => ({ ...prev, status: value }))
-            }
-          >
-            <Select.Option value="unread">未读</Select.Option>
-            <Select.Option value="read">已读</Select.Option>
-            <Select.Option value="processed">已处理</Select.Option>
-          </Select>
-
-          <RangePicker
-            showTime
-            onChange={(dates) => {
-              if (dates && dates[0] && dates[1]) {
-                // Non-null assertion is safe here because we check dates[0] and dates[1] above
-                setFilters((prev) => ({
-                  ...prev,
-                  start_time: dates[0]!.toISOString(),
-                  end_time: dates[1]!.toISOString(),
-                }));
-              } else {
-                setFilters((prev) => {
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  const { start_time, end_time, ...rest } = prev;
-                  return rest;
-                });
+    <div style={{ position: 'relative' }}>
+      {/* PC端筛选条件 */}
+      {!isMobile && (
+        <div style={{ marginBottom: 16 }}>
+          <Space wrap>
+            <Select
+              placeholder="告警级别"
+              allowClear
+              style={{ width: 120 }}
+              onChange={(value: string | undefined) =>
+                setFilters((prev) => ({ ...prev, alert_level: value }))
               }
-            }}
-          />
+            >
+              <Select.Option value="info">信息</Select.Option>
+              <Select.Option value="warning">警告</Select.Option>
+              <Select.Option value="critical">严重</Select.Option>
+            </Select>
 
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => void fetchAlerts(pagination.current, pagination.pageSize)}
-          >
-            刷新
-          </Button>
-        </Space>
-      </div>
+            <Select
+              placeholder="状态"
+              allowClear
+              style={{ width: 120 }}
+              onChange={(value: string | undefined) =>
+                setFilters((prev) => ({ ...prev, status: value }))
+              }
+            >
+              <Select.Option value="unread">未读</Select.Option>
+              <Select.Option value="read">已读</Select.Option>
+              <Select.Option value="processed">已处理</Select.Option>
+            </Select>
 
-      {/* 批量操作按钮区域 */}
-      {unreadCount > 0 && (
+            <RangePicker
+              showTime
+              onChange={(dates) => {
+                if (dates && dates[0] && dates[1]) {
+                  // Non-null assertion is safe here because we check dates[0] and dates[1] above
+                  setFilters((prev) => ({
+                    ...prev,
+                    start_time: dates[0]!.toISOString(),
+                    end_time: dates[1]!.toISOString(),
+                  }));
+                } else {
+                  setFilters((prev) => {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    const { start_time, end_time, ...rest } = prev;
+                    return rest;
+                  });
+                }
+              }}
+            />
+
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => void fetchAlerts(pagination.current, pagination.pageSize)}
+            >
+              刷新
+            </Button>
+          </Space>
+        </div>
+      )}
+
+      {/* PC端批量操作按钮区域 */}
+      {!isMobile && unreadCount > 0 && (
         <div style={{ marginBottom: 16 }}>
           <Space>
             <Button
@@ -300,18 +320,61 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
         </div>
       )}
 
-      <Table
-        columns={columns}
-        dataSource={alerts}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          ...pagination,
-          showSizeChanger: true,
-          showTotal: (total) => `共 ${total} 条`,
-          onChange: (page, pageSize) => void fetchAlerts(page, pageSize),
-        }}
-      />
+      {/* 条件渲染: 移动端显示卡片列表, PC端显示表格 */}
+      {isMobile ? (
+        <PullToRefresh onRefresh={handlePullRefresh}>
+          <div style={{ paddingBottom: 80 }}>
+            {alerts.length > 0 ? (
+              alerts.map((alert) => (
+                <MobileAlertCard
+                  key={alert.id}
+                  alert={alert}
+                  onMarkAsRead={(id) => void handleMarkAsRead(id)}
+                  onDelete={() => {
+                    // TODO: 实现删除功能 (Story 8.2 Task 3)
+                    void message.info('删除功能待实现');
+                  }}
+                />
+              ))
+            ) : (
+              <Empty description="暂无告警，系统运行正常 ✅" style={{ padding: '60px 0' }} />
+            )}
+          </div>
+        </PullToRefresh>
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={alerts}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            showTotal: (total) => `共 ${total} 条`,
+            onChange: (page, pageSize) => void fetchAlerts(page, pageSize),
+          }}
+        />
+      )}
+
+      {/* 移动端底部操作栏 */}
+      {isMobile && (
+        <MobileBottomBar
+          unreadCount={unreadCount}
+          onMarkAllAsRead={() => void handleMarkAllAsRead()}
+          onOpenFilter={() => setFilterPanelVisible(true)}
+          loading={markingAllAsRead}
+        />
+      )}
+
+      {/* 移动端筛选面板 */}
+      {isMobile && (
+        <MobileFilterPanel
+          visible={filterPanelVisible}
+          onClose={() => setFilterPanelVisible(false)}
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
+      )}
     </div>
   );
 }
