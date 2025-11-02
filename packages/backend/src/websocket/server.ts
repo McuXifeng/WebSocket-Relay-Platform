@@ -168,7 +168,7 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
 
   // 使用正则表达式提取 endpoint_id
   // 期望格式: /ws/{endpoint_id}
-  const match = pathname?.match(/^\/ws\/([a-zA-Z0-9-]+)$/);
+  const match = pathname?.match(/^\/ws\/([a-zA-Z0-9_-]+)$/);
   const endpointId = match ? match[1] : null;
 
   // 如果 URL 格式不正确或缺少 endpoint_id,拒绝连接

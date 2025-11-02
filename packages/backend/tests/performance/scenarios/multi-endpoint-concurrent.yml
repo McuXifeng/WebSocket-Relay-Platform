@@ -1,0 +1,74 @@
+# Artillery 性能测试配置
+# 场景 2: 多端点并发测试
+# 测试多个端点同时处理连接时的系统性能
+
+config:
+  target: "ws://localhost:3001"
+  # 测试阶段配置
+  phases:
+    # 预热阶段
+    - duration: 60
+      arrivalRate: 5
+      name: "预热阶段 - 建立初始连接"
+
+    # 阶段 1: 10 个端点,每端点 5 个连接 = 50 总连接
+    - duration: 120
+      arrivalRate: 50
+      name: "负载测试 - 10 端点 × 5 连接 = 50 总连接"
+      maxVusers: 50
+
+    # 阶段 2: 50 个端点,每端点 5 个连接 = 250 总连接
+    - duration: 120
+      arrivalRate: 250
+      name: "负载测试 - 50 端点 × 5 连接 = 250 总连接"
+      maxVusers: 250
+
+    # 阶段 3: 100 个端点,每端点 5 个连接 = 500 总连接
+    - duration: 120
+      arrivalRate: 500
+      name: "负载测试 - 100 端点 × 5 连接 = 500 总连接"
+      maxVusers: 500
+
+  # WebSocket 引擎配置
+  engines:
+    ws:
+      timeout: 10000
+      rejectUnauthorized: false
+
+  # 性能指标配置
+  ensure:
+    maxErrorRate: 2 # 允许更高的错误率 (多端点场景复杂度高)
+    p99: 300 # p99 延迟小于 300ms
+
+  # 自定义变量
+  variables:
+    # 动态生成端点 ID (1-100)
+    endpointId:
+      - "perf-test-endpoint-{{ $randomNumber(1, 100) }}"
+
+  # Artillery 插件
+  plugins:
+    metrics-by-endpoint:
+      stripQueryString: false
+
+# 测试场景定义
+scenarios:
+  - name: "多端点并发 - 随机端点 WebSocket 消息"
+    engine: ws
+    flow:
+      # 步骤 1: 连接到随机端点
+      - connect:
+          url: "ws://localhost:3001/ws/perf-test-endpoint-{{ $randomNumber(1, 100) }}"
+
+      # 步骤 2: 等待连接建立
+      - think: 1
+
+      # 步骤 3: 发送消息 (持续 2 分钟,每 2 秒 1 条)
+      - loop:
+          - send:
+              payload: '{"type":"message","data":"Multi-endpoint test {{ $randomNumber(1, 1000) }}","timestamp":"{{ $timestamp }}"}'
+          - think: 2
+        count: 60
+
+      # 步骤 4: 关闭连接前等待
+      - think: 2

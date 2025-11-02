@@ -1,0 +1,97 @@
+# Artillery 性能测试配置
+# 场景 3: 高消息吞吐量测试
+# 测试系统在高频消息场景下的吞吐能力
+
+config:
+  target: "ws://localhost:3001"
+  # 测试阶段配置
+  phases:
+    # 预热阶段
+    - duration: 60
+      arrivalRate: 10
+      name: "预热阶段 - 建立连接"
+
+    # 阶段 1: 目标吞吐量 100 msg/s (50 连接 × 2 msg/s/连接)
+    - duration: 120
+      arrivalRate: 50
+      name: "吞吐量测试 - 100 msg/s"
+      maxVusers: 50
+
+    # 阶段 2: 目标吞吐量 500 msg/s (50 连接 × 10 msg/s/连接)
+    # 注意: 这需要调整消息发送频率
+    - duration: 120
+      arrivalRate: 50
+      name: "吞吐量测试 - 500 msg/s"
+      maxVusers: 50
+
+    # 阶段 3: 目标吞吐量 1000 msg/s (50 连接 × 20 msg/s/连接)
+    - duration: 120
+      arrivalRate: 50
+      name: "吞吐量测试 - 1000 msg/s"
+      maxVusers: 50
+
+  # WebSocket 引擎配置
+  engines:
+    ws:
+      timeout: 10000
+      rejectUnauthorized: false
+
+  # 性能指标配置
+  ensure:
+    maxErrorRate: 5 # 高吞吐量场景允许更高错误率
+    p99: 500 # p99 延迟小于 500ms (高负载下延迟会增加)
+
+  # Artillery 插件
+  plugins:
+    metrics-by-endpoint:
+      stripQueryString: false
+
+# 测试场景定义
+scenarios:
+  # 场景 1: 100 msg/s (2 msg/s/连接)
+  - name: "高吞吐量 - 100 msg/s"
+    weight: 33 # 33% 流量
+    engine: ws
+    flow:
+      - connect:
+          url: "ws://localhost:3001/ws/perf-test-throughput-1"
+      - think: 1
+      # 每 0.5 秒发送 1 条消息 = 2 msg/s
+      - loop:
+          - send:
+              payload: '{"type":"message","data":"Throughput test 100 msg/s","seq":"{{ $randomNumber(1, 10000) }}"}'
+          - think: 0.5
+        count: 240
+      - think: 1
+
+  # 场景 2: 500 msg/s (10 msg/s/连接)
+  - name: "高吞吐量 - 500 msg/s"
+    weight: 33 # 33% 流量
+    engine: ws
+    flow:
+      - connect:
+          url: "ws://localhost:3001/ws/perf-test-throughput-2"
+      - think: 1
+      # 每 0.1 秒发送 1 条消息 = 10 msg/s
+      - loop:
+          - send:
+              payload: '{"type":"message","data":"Throughput test 500 msg/s","seq":"{{ $randomNumber(1, 10000) }}"}'
+          - think: 0.1
+        count: 1200
+      - think: 1
+
+  # 场景 3: 1000 msg/s (20 msg/s/连接)
+  - name: "高吞吐量 - 1000 msg/s"
+    weight: 34 # 34% 流量
+    engine: ws
+    flow:
+      - connect:
+          url: "ws://localhost:3001/ws/perf-test-throughput-3"
+      - think: 1
+      # 每 0.05 秒发送 1 条消息 = 20 msg/s
+      - loop:
+          - send:
+              payload: '{"type":"message","data":"Throughput test 1000 msg/s","seq":"{{ $randomNumber(1, 10000) }}"}'
+          - think: 0.05
+        count: 2400
+      - think: 1

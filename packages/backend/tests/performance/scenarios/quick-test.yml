@@ -1,0 +1,40 @@
+# Artillery 快速性能测试
+# 用于验证测试流程和收集初步数据
+
+config:
+  phases:
+    # 快速测试: 10 个并发连接,持续 30 秒
+    - duration: 30
+      arrivalRate: 10
+      name: "快速性能测试 - 10 并发连接"
+      maxVusers: 10
+
+  engines:
+    ws:
+      timeout: 10000
+      rejectUnauthorized: false
+
+  ensure:
+    maxErrorRate: 5
+    p99: 300
+
+scenarios:
+  - name: "快速性能测试 - WebSocket 消息收发"
+    engine: ws
+    flow:
+      # 连接到实际存在的端点（使用完整URL）
+      - connect:
+          target: "ws://localhost:3001/ws/PSE_CoyAoN"
+
+      # 等待连接建立
+      - think: 1
+
+      # 发送 10 条消息 (每秒 1 条)
+      - loop:
+          - send:
+              payload: '{"type":"message","data":"Quick test message","timestamp":"{{ $timestamp }}"}'
+          - think: 1
+        count: 10
+
+      # 关闭前等待
+      - think: 1

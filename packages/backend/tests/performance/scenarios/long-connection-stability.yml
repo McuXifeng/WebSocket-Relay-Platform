@@ -1,0 +1,92 @@
+# Artillery 性能测试配置
+# 场景 4: 长连接稳定性测试
+# 测试系统长时间运行的稳定性和资源管理能力
+
+config:
+  target: "ws://localhost:3001"
+  # 测试阶段配置
+  phases:
+    # 预热阶段: 逐步建立连接
+    - duration: 60
+      arrivalRate: 5
+      name: "预热阶段 - 逐步建立连接"
+
+    # 稳定负载阶段: 保持 100 个连接持续 60 分钟
+    - duration: 3600 # 60 分钟
+      arrivalRate: 100
+      name: "稳定性测试 - 100 连接持续 60 分钟"
+      maxVusers: 100
+      rampTo: 100 # 平稳增长到 100 个连接
+
+  # WebSocket 引擎配置
+  engines:
+    ws:
+      timeout: 15000 # 更长的超时时间
+      rejectUnauthorized: false
+
+  # 性能指标配置
+  ensure:
+    maxErrorRate: 1 # 长时间运行允许 1% 错误率
+    p99: 300 # p99 延迟小于 300ms
+
+  # Artillery 插件
+  plugins:
+    metrics-by-endpoint:
+      stripQueryString: false
+
+# 测试场景定义
+scenarios:
+  - name: "长连接稳定性 - 低频心跳消息"
+    engine: ws
+    flow:
+      # 步骤 1: 建立 WebSocket 连接
+      - connect:
+          url: "ws://localhost:3001/ws/perf-test-long-connection"
+
+      # 步骤 2: 等待连接建立
+      - think: 2
+
+      # 步骤 3: 发送低频心跳消息 (每 10 秒 1 条,持续 60 分钟)
+      # 60 分钟 = 3600 秒 / 10 秒 = 360 条消息
+      - loop:
+          - send:
+              payload: '{"type":"heartbeat","data":"Long connection stability test","timestamp":"{{ $timestamp }}","seq":"{{ $randomNumber(1, 10000) }}"}'
+          - think: 10 # 每 10 秒发送一次
+        count: 360
+
+      # 步骤 4: 关闭连接前等待
+      - think: 5
+
+  # 额外场景: 随机断线重连测试 (模拟真实网络波动)
+  - name: "长连接稳定性 - 随机断线重连"
+    weight: 20 # 20% 的连接会经历断线重连
+    engine: ws
+    flow:
+      # 初始连接
+      - connect:
+          url: "ws://localhost:3001/ws/perf-test-long-reconnect"
+      - think: 2
+
+      # 保持连接一段时间 (5-15 分钟)
+      - loop:
+          - send:
+              payload: '{"type":"message","data":"Before reconnect","timestamp":"{{ $timestamp }}"}'
+          - think: 10
+        count: "{{ $randomNumber(30, 90) }}" # 300-900 秒
+
+      # 模拟断线
+      - think: 1
+
+      # 重新连接
+      - connect:
+          target: "/ws/perf-test-long-reconnect"
+      - think: 2
+
+      # 继续发送消息
+      - loop:
+          - send:
+              payload: '{"type":"message","data":"After reconnect","timestamp":"{{ $timestamp }}"}'
+          - think: 10
+        count: 180 # 继续 30 分钟
+
+      - think: 5

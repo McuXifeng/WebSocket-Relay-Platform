@@ -1,0 +1,113 @@
+{
+  "aggregate": {
+    "counters": {
+      "vusers.created_by_name.快速性能测试 - WebSocket 消息收发": 150,
+      "vusers.created": 150,
+      "vusers.skipped": 150,
+      "websocket.messages_sent": 150,
+      "errors.Error: WebSocket is not open: readyState 3 (CLOSED)": 150,
+      "errors.WebSocket is not open: readyState 3 (CLOSED)": 150,
+      "vusers.failed": 150
+    },
+    "rates": {
+      "websocket.send_rate": 10
+    },
+    "firstCounterAt": 1762077646317,
+    "lastCounterAt": 1762077675898,
+    "firstMetricAt": 1762077646317,
+    "lastMetricAt": 1762077675898,
+    "period": 1762077670000,
+    "summaries": {},
+    "histograms": {}
+  },
+  "intermediate": [
+    {
+      "counters": {
+        "vusers.created_by_name.快速性能测试 - WebSocket 消息收发": 20,
+        "vusers.created": 20,
+        "vusers.skipped": 20,
+        "websocket.messages_sent": 20,
+        "errors.Error: WebSocket is not open: readyState 3 (CLOSED)": 20,
+        "errors.WebSocket is not open: readyState 3 (CLOSED)": 20,
+        "vusers.failed": 20
+      },
+      "rates": {
+        "websocket.send_rate": 10
+      },
+      "websocket.send_rate": null,
+      "firstCounterAt": 1762077646317,
+      "lastCounterAt": 1762077649886,
+      "firstMetricAt": 1762077646317,
+      "lastMetricAt": 1762077649886,
+      "period": "1762077640000",
+      "summaries": {},
+      "histograms": {}
+    },
+    {
+      "counters": {
+        "vusers.created_by_name.快速性能测试 - WebSocket 消息收发": 50,
+        "vusers.created": 50,
+        "vusers.skipped": 50,
+        "websocket.messages_sent": 50,
+        "errors.Error: WebSocket is not open: readyState 3 (CLOSED)": 50,
+        "errors.WebSocket is not open: readyState 3 (CLOSED)": 50,
+        "vusers.failed": 50
+      },
+      "rates": {
+        "websocket.send_rate": 10
+      },
+      "websocket.send_rate": null,
+      "firstCounterAt": 1762077650316,
+      "lastCounterAt": 1762077659885,
+      "firstMetricAt": 1762077650316,
+      "lastMetricAt": 1762077659885,
+      "period": "1762077650000",
+      "summaries": {},
+      "histograms": {}
+    },
+    {
+      "counters": {
+        "vusers.created_by_name.快速性能测试 - WebSocket 消息收发": 50,
+        "vusers.created": 50,
+        "vusers.skipped": 50,
+        "websocket.messages_sent": 50,
+        "errors.Error: WebSocket is not open: readyState 3 (CLOSED)": 50,
+        "errors.WebSocket is not open: readyState 3 (CLOSED)": 50,
+        "vusers.failed": 50
+      },
+      "rates": {
+        "websocket.send_rate": 10
+      },
+      "websocket.send_rate": null,
+      "firstCounterAt": 1762077660316,
+      "lastCounterAt": 1762077669890,
+      "firstMetricAt": 1762077660316,
+      "lastMetricAt": 1762077669890,
+      "period": "1762077660000",
+      "summaries": {},
+      "histograms": {}
+    },
+    {
+      "counters": {
+        "vusers.created_by_name.快速性能测试 - WebSocket 消息收发": 30,
+        "vusers.created": 30,
+        "vusers.skipped": 30,
+        "websocket.messages_sent": 30,
+        "errors.Error: WebSocket is not open: readyState 3 (CLOSED)": 30,
+        "errors.WebSocket is not open: readyState 3 (CLOSED)": 30,
+        "vusers.failed": 30
+      },
+      "rates": {
+        "websocket.send_rate": 10
+      },
+      "websocket.send_rate": null,
+      "firstCounterAt": 1762077670316,
+      "lastCounterAt": 1762077675898,
+      "firstMetricAt": 1762077670316,
+      "lastMetricAt": 1762077675898,
+      "period": "1762077670000",
+      "summaries": {},
+      "histograms": {}
+    }
+  ]
+}
