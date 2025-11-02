@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Table, Tag, Button, Space, DatePicker, Select, message } from 'antd';
-import { CheckOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CheckOutlined, ReloadOutlined } from '@ant-design/icons';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import type { AlertHistoryWithDetails, AlertLevel, AlertStatus } from '@websocket-relay/shared';
 import {
   getAlertHistory,
   markAlertAsRead,
-  markAlertAsProcessed,
+  markAllAlertsAsRead,
+  getUnreadAlertCount,
 } from '../../services/alert.service';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -38,6 +39,10 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
     total: 0,
   });
 
+  // 未读数量和加载状态
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
+
   // 筛选条件
   const [filters, setFilters] = useState<{
     alert_level?: string;
@@ -45,6 +50,16 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
     start_time?: string;
     end_time?: string;
   }>({});
+
+  // 加载未读数量
+  const fetchUnreadCount = async () => {
+    try {
+      const count = await getUnreadAlertCount(endpointId);
+      setUnreadCount(count);
+    } catch (error) {
+      console.error('Failed to fetch unread count:', error);
+    }
+  };
 
   // 加载告警历史
   const fetchAlerts = async (page = 1, pageSize = 10) => {
@@ -62,6 +77,8 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
         pageSize: response.pageSize,
         total: response.total,
       });
+      // 刷新未读数量
+      void fetchUnreadCount();
     } catch (error) {
       void message.error('加载告警历史失败');
       console.error('Failed to fetch alert history:', error);
@@ -86,15 +103,18 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
     }
   };
 
-  // 标记为已处理
-  const handleMarkAsProcessed = async (alertId: string) => {
+  // 批量已读（全部已读）
+  const handleMarkAllAsRead = async () => {
     try {
-      await markAlertAsProcessed(alertId);
-      void message.success('已标记为已处理');
+      setMarkingAllAsRead(true);
+      const result = await markAllAlertsAsRead(endpointId);
+      void message.success(`已将 ${result.count} 条告警标记为已读`);
       void fetchAlerts(pagination.current, pagination.pageSize);
     } catch (error) {
-      void message.error('操作失败');
-      console.error('Failed to mark as processed:', error);
+      void message.error('批量已读操作失败');
+      console.error('Failed to mark all as read:', error);
+    } finally {
+      setMarkingAllAsRead(false);
     }
   };
 
@@ -186,7 +206,7 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
     {
       title: '操作',
       key: 'actions',
-      width: 200,
+      width: 150,
       render: (_, record) => (
         <Space size="small">
           {record.status === 'unread' && (
@@ -197,16 +217,6 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
               onClick={() => void handleMarkAsRead(record.id)}
             >
               标记已读
-            </Button>
-          )}
-          {(record.status === 'unread' || record.status === 'read') && (
-            <Button
-              type="link"
-              size="small"
-              icon={<CheckCircleOutlined />}
-              onClick={() => void handleMarkAsProcessed(record.id)}
-            >
-              已处理
             </Button>
           )}
         </Space>
@@ -273,6 +283,22 @@ function AlertHistoryTab({ endpointId }: AlertHistoryTabProps) {
           </Button>
         </Space>
       </div>
+
+      {/* 批量操作按钮区域 */}
+      {unreadCount > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <Space>
+            <Button
+              type="primary"
+              icon={<CheckOutlined />}
+              onClick={() => void handleMarkAllAsRead()}
+              loading={markingAllAsRead}
+            >
+              全部已读 ({unreadCount})
+            </Button>
+          </Space>
+        </div>
+      )}
 
       <Table
         columns={columns}

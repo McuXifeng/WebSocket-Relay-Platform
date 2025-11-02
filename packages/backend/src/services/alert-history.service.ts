@@ -251,22 +251,45 @@ export async function deleteAlertHistory(alertId: string, userId: string) {
 
 /**
  * 批量标记告警为已读
- * @param alertIds - 告警历史 ID 列表
+ * @param alertIds - 告警历史 ID 列表 (可选，为空时标记所有未读告警)
  * @param userId - 用户 ID (用于权限验证)
+ * @param endpointId - 端点 ID (可选，仅标记该端点的告警)
  * @returns 更新的记录数量
  */
-export async function markMultipleAsRead(alertIds: string[], userId: string) {
-  const result = await prisma.alertHistory.updateMany({
-    where: {
-      id: { in: alertIds },
-      alert_rule: {
-        user_id: userId,
-      },
+export async function markMultipleAsRead(
+  alertIds: string[] | undefined,
+  userId: string,
+  endpointId?: string
+) {
+  // 构建查询条件
+  const whereClause: Record<string, unknown> = {
+    alert_rule: {
+      user_id: userId,
+      ...(endpointId && { endpoint_id: endpointId }),
     },
+  };
+
+  // 如果传入了 alertIds，则标记指定的告警
+  if (alertIds && alertIds.length > 0) {
+    whereClause.id = { in: alertIds };
+  } else {
+    // 否则标记所有未读告警
+    whereClause.status = 'unread';
+  }
+
+  const result = await prisma.alertHistory.updateMany({
+    where: whereClause,
     data: {
       status: 'read',
       read_at: new Date(),
     },
+  });
+
+  alertLogger.info('批量标记告警为已读', {
+    userId,
+    endpointId,
+    alertIds,
+    updatedCount: result.count,
   });
 
   return result.count;

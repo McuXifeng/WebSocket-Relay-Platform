@@ -155,9 +155,12 @@ export interface GetUnreadCountResponse {
 
 /**
  * 标记告警为已读请求参数
+ * ids 为空数组或 undefined 时，标记所有未读告警为已读
+ * endpoint_id 可选，指定仅标记该端点的告警
  */
 export interface MarkAlertAsReadRequest {
-  ids: string[];
+  ids?: string[];
+  endpoint_id?: string;
 }
 
 /**

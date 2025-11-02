@@ -336,6 +336,223 @@ describe('AlertHistoryService', () => {
       expect(alert1?.status).toBe('read');
       expect(alert2?.status).toBe('read');
     });
+
+    it('should mark all unread alerts as read when alertIds is undefined', async () => {
+      // 创建 3 个未读告警和 1 个已读告警
+      await prisma.alertHistory.createMany({
+        data: [
+          {
+            id: 'alert-all-1',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '85',
+            threshold: '80',
+            alert_level: 'warning',
+            status: 'unread',
+          },
+          {
+            id: 'alert-all-2',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '90',
+            threshold: '80',
+            alert_level: 'warning',
+            status: 'unread',
+          },
+          {
+            id: 'alert-all-3',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '95',
+            threshold: '80',
+            alert_level: 'critical',
+            status: 'unread',
+          },
+          {
+            id: 'alert-all-4',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '88',
+            threshold: '80',
+            alert_level: 'warning',
+            status: 'read',
+          },
+        ],
+      });
+
+      // 不传 alertIds，应该标记所有未读告警为已读
+      const count = await markMultipleAsRead(undefined, TEST_USER_ID);
+
+      expect(count).toBe(3); // 只标记 3 个未读告警
+
+      // 验证已更新
+      const alerts = await prisma.alertHistory.findMany({
+        where: { alert_rule_id: TEST_ALERT_RULE_ID },
+        orderBy: { id: 'asc' },
+      });
+      expect(alerts.length).toBe(4);
+      expect(alerts[0].status).toBe('read'); // alert-all-1
+      expect(alerts[1].status).toBe('read'); // alert-all-2
+      expect(alerts[2].status).toBe('read'); // alert-all-3
+      expect(alerts[3].status).toBe('read'); // alert-all-4 (本来就是 read)
+    });
+
+    it('should mark all unread alerts for specific endpoint when endpointId is provided', async () => {
+      // 创建另一个端点和告警规则
+      const ANOTHER_ENDPOINT_ID = 'test-endpoint-history-2';
+      const ANOTHER_ALERT_RULE_ID = 'test-alert-rule-history-2';
+      const ANOTHER_DEVICE_ID = 'test-device-history-2';
+
+      await prisma.endpoint.create({
+        data: {
+          id: ANOTHER_ENDPOINT_ID,
+          endpoint_id: 'ep-hist-02',
+          name: 'Another Endpoint for History',
+          user_id: TEST_USER_ID,
+        },
+      });
+
+      await prisma.device.create({
+        data: {
+          id: ANOTHER_DEVICE_ID,
+          endpoint_id: ANOTHER_ENDPOINT_ID,
+          device_id: 'dev-hist-02',
+          custom_name: 'Another Device History',
+        },
+      });
+
+      await prisma.alertRule.create({
+        data: {
+          id: ANOTHER_ALERT_RULE_ID,
+          user_id: TEST_USER_ID,
+          endpoint_id: ANOTHER_ENDPOINT_ID,
+          device_id: ANOTHER_DEVICE_ID,
+          rule_name: '湿度过高告警',
+          data_key: 'humidity',
+          operator: '>',
+          threshold: '70',
+          alert_level: 'warning',
+          enabled: true,
+        },
+      });
+
+      // 创建两个端点的未读告警
+      await prisma.alertHistory.createMany({
+        data: [
+          {
+            id: 'alert-ep1-1',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '85',
+            threshold: '80',
+            alert_level: 'warning',
+            status: 'unread',
+          },
+          {
+            id: 'alert-ep1-2',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '90',
+            threshold: '80',
+            alert_level: 'warning',
+            status: 'unread',
+          },
+          {
+            id: 'alert-ep2-1',
+            alert_rule_id: ANOTHER_ALERT_RULE_ID,
+            device_id: ANOTHER_DEVICE_ID,
+            data_key: 'humidity',
+            triggered_value: '75',
+            threshold: '70',
+            alert_level: 'warning',
+            status: 'unread',
+          },
+        ],
+      });
+
+      // 只标记第一个端点的所有未读告警
+      const count = await markMultipleAsRead(undefined, TEST_USER_ID, TEST_ENDPOINT_ID);
+
+      expect(count).toBe(2); // 只标记端点 1 的 2 个未读告警
+
+      // 验证端点 1 的告警已更新
+      const ep1Alerts = await prisma.alertHistory.findMany({
+        where: { alert_rule_id: TEST_ALERT_RULE_ID },
+      });
+      expect(ep1Alerts.every((alert) => alert.status === 'read')).toBe(true);
+
+      // 验证端点 2 的告警未更新
+      const ep2Alerts = await prisma.alertHistory.findMany({
+        where: { alert_rule_id: ANOTHER_ALERT_RULE_ID },
+      });
+      expect(ep2Alerts.every((alert) => alert.status === 'unread')).toBe(true);
+
+      // 清理测试数据
+      await prisma.alertHistory.deleteMany({ where: { alert_rule_id: ANOTHER_ALERT_RULE_ID } });
+      await prisma.alertRule.delete({ where: { id: ANOTHER_ALERT_RULE_ID } });
+      await prisma.device.delete({ where: { id: ANOTHER_DEVICE_ID } });
+      await prisma.endpoint.delete({ where: { id: ANOTHER_ENDPOINT_ID } });
+    });
+
+    it('should mark only specified alerts when alertIds array is provided', async () => {
+      // 创建多个未读告警
+      await prisma.alertHistory.createMany({
+        data: [
+          {
+            id: 'alert-specific-1',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '85',
+            threshold: '80',
+            alert_level: 'warning',
+            status: 'unread',
+          },
+          {
+            id: 'alert-specific-2',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '90',
+            threshold: '80',
+            alert_level: 'warning',
+            status: 'unread',
+          },
+          {
+            id: 'alert-specific-3',
+            alert_rule_id: TEST_ALERT_RULE_ID,
+            device_id: TEST_DEVICE_ID,
+            data_key: 'temperature',
+            triggered_value: '95',
+            threshold: '80',
+            alert_level: 'critical',
+            status: 'unread',
+          },
+        ],
+      });
+
+      // 只标记前两个告警
+      const count = await markMultipleAsRead(
+        ['alert-specific-1', 'alert-specific-2'],
+        TEST_USER_ID
+      );
+
+      expect(count).toBe(2);
+
+      // 验证只有前两个告警被更新
+      const alert1 = await prisma.alertHistory.findUnique({ where: { id: 'alert-specific-1' } });
+      const alert2 = await prisma.alertHistory.findUnique({ where: { id: 'alert-specific-2' } });
+      const alert3 = await prisma.alertHistory.findUnique({ where: { id: 'alert-specific-3' } });
+      expect(alert1?.status).toBe('read');
+      expect(alert2?.status).toBe('read');
+      expect(alert3?.status).toBe('unread'); // 仍然是未读
+    });
   });
 
   describe('deleteMultipleAlertHistory', () => {

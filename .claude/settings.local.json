@@ -167,7 +167,16 @@
       "Bash(DATABASE_URL=\"mysql://root:micuadmin@localhost:33066/websocket_relay_test\" pnpm --filter @websocket-relay/backend test:*)",
       "Bash(set DATABASE_URL=mysql://root:micuadmin@localhost:33066/websocket_relay_test)",
       "Bash(set NODE_OPTIONS=--experimental-vm-modules)",
-      "Bash(gh release create:*)"
+      "Bash(gh release create:*)",
+      "Bash(gh auth:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(/Users/xifeng/test/trigger-test-alert.sh:*)",
+      "Bash(/Users/xifeng/test/debug-alert-trigger.sh)",
+      "Bash(/Users/xifeng/test/simple-alert-test.sh)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiOTMyODFkYi0xNWQ0LTQwZGQtYTkzOC02NjljM2M2ODU5OWIiLCJ1c2VybmFtZSI6ImFkbWluIiwiaXNBZG1pbiI6dHJ1ZSwiaWF0IjoxNzYyMDI1MjIzLCJleHAiOjE3NjI2MzAwMjN9.N_ec75cRfYFqTjdl5WDSSrcFgiwasquZtdOKiww62Uc\")",
+      "Bash(/Users/xifeng/test/test-email-mark-read.sh:*)",
+      "Bash(timeout 30 node:*)"
     ],
     "deny": [],
     "ask": []

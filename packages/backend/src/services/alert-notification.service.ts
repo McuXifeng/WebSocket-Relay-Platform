@@ -1,9 +1,14 @@
 /**
- * 告警通知服务 (Epic 6 Story 6.5)
+ * 告警通知服务 (Epic 6 Story 6.5, Epic 7 Story 7.2)
  * 负责发送邮件通知
+ * Story 7.2 优化: 添加异步邮件队列、SMTP连接池、超时控制
  */
 
 import nodemailer from 'nodemailer';
+import { EmailQueueManager, type EmailPriority } from '../utils/email-queue.util.js';
+import { alertLogger } from '../config/logger.js';
+import { generateMarkReadToken } from '../utils/token.util.js'; // Story 8.1
+import { config } from '../config/env.js'; // Story 8.1
 
 /**
  * SMTP 配置接口
@@ -23,6 +28,7 @@ interface SmtpConfig {
  */
 interface EmailNotificationParams {
   to: string;
+  alertId: string; // Story 8.1: 告警历史 ID，用于生成快速已读 Token
   alertLevel: 'info' | 'warning' | 'critical';
   ruleName: string;
   deviceName: string;
@@ -59,7 +65,8 @@ function getSmtpConfig(): SmtpConfig | null {
 }
 
 /**
- * 创建邮件传输器（单例模式）
+ * 创建邮件传输器（单例模式 + 连接池）
+ * Story 7.2 优化: 添加连接池配置、超时控制
  */
 let transporter: nodemailer.Transporter | null = null;
 
@@ -67,8 +74,7 @@ function getEmailTransporter(): nodemailer.Transporter | null {
   const config = getSmtpConfig();
 
   if (!config) {
-    // eslint-disable-next-line no-console
-    console.warn('[Alert] SMTP configuration is missing, email notifications disabled');
+    alertLogger.warn('SMTP 配置缺失,邮件通知功能已禁用');
     return null;
   }
 
@@ -78,22 +84,76 @@ function getEmailTransporter(): nodemailer.Transporter | null {
   }
 
   try {
-    transporter = nodemailer.createTransport(config);
-    // eslint-disable-next-line no-console
-    console.log('[Alert] SMTP transporter created successfully');
+    // Story 7.2 优化: 添加连接池配置和超时控制
+    transporter = nodemailer.createTransport({
+      ...config,
+      // 连接池配置
+      pool: true, // 启用连接池
+      maxConnections: parseInt(process.env.EMAIL_POOL_MAX_CONNECTIONS || '5', 10), // 最大并发连接数
+      maxMessages: 100, // 每个连接最多发送100封邮件后重建
+      rateDelta: 1000, // 速率限制时间窗口(1秒)
+      rateLimit: parseInt(process.env.EMAIL_RATE_LIMIT || '5', 10), // 每秒最多发送邮件数
+      // 超时控制
+      connectionTimeout: parseInt(process.env.EMAIL_QUEUE_TIMEOUT || '10000', 10), // 连接超时
+      greetingTimeout: parseInt(process.env.EMAIL_QUEUE_TIMEOUT || '10000', 10), // 握手超时
+      socketTimeout: parseInt(process.env.EMAIL_QUEUE_TIMEOUT || '10000', 10), // Socket超时
+    });
+
+    alertLogger.info('SMTP 传输器已创建(连接池模式)', {
+      host: config.host,
+      port: config.port,
+      maxConnections: parseInt(process.env.EMAIL_POOL_MAX_CONNECTIONS || '5', 10),
+      timeout: parseInt(process.env.EMAIL_QUEUE_TIMEOUT || '10000', 10),
+    });
+
     return transporter;
   } catch (error) {
-    console.error('[Alert] Failed to create SMTP transporter:', error);
+    alertLogger.error('创建 SMTP 传输器失败', error as Error);
     return null;
   }
 }
 
 /**
+ * 邮件队列管理器单例
+ * Story 7.2 新增: 异步邮件队列管理
+ */
+let emailQueueManager: EmailQueueManager | null = null;
+
+/**
+ * 获取或创建邮件队列管理器
+ */
+function getEmailQueueManager(): EmailQueueManager {
+  if (!emailQueueManager) {
+    const transporter = getEmailTransporter();
+    emailQueueManager = new EmailQueueManager(transporter);
+
+    alertLogger.info('邮件队列管理器已初始化');
+  }
+
+  return emailQueueManager;
+}
+
+/**
  * 生成告警邮件 HTML 模板
+ * Story 8.1: 添加"标记已读"按钮和 Token 生成
  */
 function generateEmailTemplate(params: EmailNotificationParams): string {
-  const { alertLevel, ruleName, deviceName, dataKey, triggeredValue, threshold, triggeredAt } =
-    params;
+  const {
+    alertId,
+    alertLevel,
+    ruleName,
+    deviceName,
+    dataKey,
+    triggeredValue,
+    threshold,
+    triggeredAt,
+  } = params;
+
+  // Story 8.1: 生成邮件快速已读 Token
+  const markReadToken = generateMarkReadToken(alertId);
+  // 邮件链接应该指向后端 API，而不是前端
+  const backendUrl = process.env.BACKEND_URL || `http://localhost:${config.apiPort}`;
+  const markReadUrl = `${backendUrl}/api/alert-history/mark-read?token=${markReadToken}`;
 
   // 告警级别对应的颜色和中文名称
   const levelConfig = {
@@ -102,7 +162,7 @@ function generateEmailTemplate(params: EmailNotificationParams): string {
     critical: { color: '#ff4d4f', label: '严重' },
   };
 
-  const config = levelConfig[alertLevel];
+  const levelStyle = levelConfig[alertLevel];
 
   return `
 <!DOCTYPE html>
@@ -115,15 +175,15 @@ function generateEmailTemplate(params: EmailNotificationParams): string {
 <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
   <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
     <!-- Header -->
-    <div style="background-color: ${config.color}; padding: 20px; text-align: center;">
+    <div style="background-color: ${levelStyle.color}; padding: 20px; text-align: center;">
       <h1 style="margin: 0; color: #ffffff; font-size: 24px;">⚠️ 设备告警通知</h1>
     </div>
 
     <!-- Content -->
     <div style="padding: 30px;">
       <div style="margin-bottom: 20px;">
-        <div style="display: inline-block; background-color: ${config.color}; color: #ffffff; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">
-          ${config.label}
+        <div style="display: inline-block; background-color: ${levelStyle.color}; color: #ffffff; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: bold;">
+          ${levelStyle.label}
         </div>
       </div>
 
@@ -140,7 +200,7 @@ function generateEmailTemplate(params: EmailNotificationParams): string {
         </tr>
         <tr>
           <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; color: #8c8c8c; font-size: 14px;">触发值</td>
-          <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; color: ${config.color}; font-size: 14px; font-weight: bold; text-align: right;">${triggeredValue}</td>
+          <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; color: ${levelStyle.color}; font-size: 14px; font-weight: bold; text-align: right;">${triggeredValue}</td>
         </tr>
         <tr>
           <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; color: #8c8c8c; font-size: 14px;">阈值</td>
@@ -152,7 +212,17 @@ function generateEmailTemplate(params: EmailNotificationParams): string {
         </tr>
       </table>
 
-      <div style="margin-top: 30px; padding: 16px; background-color: #f5f5f5; border-radius: 4px;">
+      <!-- Story 8.1: 快速已读按钮 -->
+      <div style="margin-top: 30px; text-align: center;">
+        <a href="${markReadUrl}" style="display: inline-block; padding: 12px 32px; background-color: #52c41a; color: #ffffff; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">
+          ✓ 标记为已读
+        </a>
+        <p style="margin: 10px 0 0 0; color: #8c8c8c; font-size: 12px;">
+          点击上方按钮可快速标记此告警为已读，无需登录系统
+        </p>
+      </div>
+
+      <div style="margin-top: 20px; padding: 16px; background-color: #f5f5f5; border-radius: 4px;">
         <p style="margin: 0; color: #595959; font-size: 14px;">
           此邮件由 WebSocket 中继平台自动发送，请勿回复。
         </p>
@@ -172,21 +242,22 @@ function generateEmailTemplate(params: EmailNotificationParams): string {
 }
 
 /**
- * 发送邮件告警通知（带重试机制）
+ * 发送邮件告警通知（异步队列方式）
+ * Story 7.2 优化: 改为异步入队操作,不阻塞主流程
+ *
  * @param params - 邮件通知参数
- * @param maxRetries - 最大重试次数（默认 2 次）
- * @returns 是否发送成功
+ * @param maxRetries - 最大重试次数（默认 3 次）
+ * @returns 是否成功入队（不代表发送成功）
  */
-export async function sendEmailNotification(
+export function sendEmailNotification(
   params: EmailNotificationParams,
-  maxRetries: number = 2
-): Promise<boolean> {
-  const transporter = getEmailTransporter();
+  maxRetries: number = 3
+): boolean {
+  const queueManager = getEmailQueueManager();
 
-  // 如果没有配置 SMTP，跳过邮件发送
-  if (!transporter) {
-    // eslint-disable-next-line no-console
-    console.warn('[Alert] Email notification skipped: SMTP not configured');
+  // 如果队列管理器的传输器为空（SMTP 未配置），跳过邮件发送
+  if (!getEmailTransporter()) {
+    alertLogger.warn('邮件通知已跳过: SMTP 未配置');
     return false;
   }
 
@@ -200,34 +271,47 @@ export async function sendEmailNotification(
     critical: '[严重]',
   };
 
-  const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  // 根据告警级别设置邮件优先级
+  const priorityMap: Record<typeof alertLevel, EmailPriority> = {
+    critical: 'high',
+    warning: 'normal',
+    info: 'low',
+  };
+
+  // 入队操作（异步发送）
+  queueManager.enqueue({
     to,
     subject: `${levelPrefix[alertLevel]} ${ruleName} - 设备告警通知`,
     html,
-  };
+    priority: priorityMap[alertLevel],
+    maxRetries,
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  });
 
-  // 重试逻辑
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      await transporter.sendMail(mailOptions);
-      // eslint-disable-next-line no-console
-      console.log(`[Alert] Email notification sent successfully to ${to} (attempt ${attempt + 1})`);
-      return true;
-    } catch (error) {
-      console.error(
-        `[Alert] Failed to send email notification to ${to} (attempt ${attempt + 1}):`,
-        error
-      );
+  alertLogger.debug('邮件通知已入队', {
+    to,
+    alertLevel,
+    ruleName,
+    priority: priorityMap[alertLevel],
+  });
 
-      // 如果还有重试次数，等待 5 秒后重试
-      if (attempt < maxRetries) {
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      }
-    }
-  }
+  return true;
+}
 
-  // 所有重试都失败
-  console.error(`[Alert] Email notification failed after ${maxRetries + 1} attempts to ${to}`);
-  return false;
+/**
+ * 获取邮件队列性能指标
+ * Story 7.2 新增: 性能监控接口
+ */
+export function getEmailQueueMetrics() {
+  const queueManager = getEmailQueueManager();
+  return queueManager.getMetrics();
+}
+
+/**
+ * 重置邮件队列性能指标
+ * Story 7.2 新增: 用于测试或定期重置
+ */
+export function resetEmailQueueMetrics(): void {
+  const queueManager = getEmailQueueManager();
+  queueManager.resetMetrics();
 }

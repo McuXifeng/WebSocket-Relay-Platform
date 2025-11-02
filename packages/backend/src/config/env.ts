@@ -56,6 +56,17 @@ export const config = {
 
   // 告警历史保留天数
   alertRetentionDays: parseInt(process.env.ALERT_RETENTION_DAYS || '30', 10),
+
+  // 已读告警冷却期（小时）- Story 8.1
+  alertReadCooldownHours: parseInt(process.env.ALERT_READ_COOLDOWN_HOURS || '24', 10),
+
+  // 邮件快速已读 Token 签名密钥 - Story 8.1
+  // 如果未配置，使用 JWT_SECRET
+  markReadTokenSecret:
+    process.env.MARK_READ_TOKEN_SECRET || process.env.JWT_SECRET || 'default-secret',
+
+  // 前端 URL（用于邮件中生成完整链接）- Story 8.1
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
 };
 
 /**

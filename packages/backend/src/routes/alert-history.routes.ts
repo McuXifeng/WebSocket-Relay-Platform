@@ -1,5 +1,5 @@
 /**
- * Alert History Routes (Epic 6 Story 6.5)
+ * Alert History Routes (Epic 6 Story 6.5, Story 8.1)
  * 定义告警历史相关的路由
  */
 
@@ -13,12 +13,21 @@ import {
   markMultipleAsRead,
   deleteMultipleAlertHistory,
   getUnreadAlertCount,
+  markAsReadByToken, // Story 8.1
 } from '../controllers/alert-history.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
 const router: IRouter = Router();
 
-// 所有告警历史路由都需要身份认证
+/**
+ * @route GET /api/alert-history/mark-read
+ * @desc 通过邮件 Token 标记告警为已读 (Story 8.1)
+ * @access Public (通过 Token 验证)
+ * @query token - 邮件中的快速已读 Token
+ */
+router.get('/mark-read', markAsReadByToken as RequestHandler);
+
+// 以下路由需要身份认证
 router.use(authenticateToken);
 
 /**

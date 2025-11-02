@@ -3,7 +3,7 @@
  * 测试设备分组数据聚合服务
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import * as deviceGroupDataService from '../../../src/services/device-group-data.service';
@@ -15,7 +15,7 @@ describe('DeviceGroupDataService', () => {
   let testUserId: string;
   let testEndpointId: string;
   let testGroupId: string;
-  let testDeviceIds: string[] = [];
+  const testDeviceIds: string[] = [];
 
   beforeAll(async () => {
     // 创建测试用户
@@ -129,20 +129,32 @@ describe('DeviceGroupDataService', () => {
       expect(result.aggregations.length).toBeGreaterThan(0);
 
       // 验证聚合数据结构
-      const tempAgg = result.aggregations.find((a: any) => a.data_key === 'temperature');
+      interface AggregationResult {
+        data_key: string;
+        unit: string;
+        average: number;
+        max: number;
+        min: number;
+        sample_count: number;
+      }
+      const tempAgg = result.aggregations.find(
+        (a: AggregationResult) => a.data_key === 'temperature'
+      );
       expect(tempAgg).toBeDefined();
-      expect(tempAgg.unit).toBe('°C');
-      expect(tempAgg.average).toBeCloseTo(25, 0); // (20 + 25 + 30) / 3 = 25
-      expect(tempAgg.max).toBe(30);
-      expect(tempAgg.min).toBe(20);
-      expect(tempAgg.sample_count).toBe(3);
+      expect(tempAgg?.unit).toBe('°C');
+      expect(tempAgg?.average).toBeCloseTo(25, 0); // (20 + 25 + 30) / 3 = 25
+      expect(tempAgg?.max).toBe(30);
+      expect(tempAgg?.min).toBe(20);
+      expect(tempAgg?.sample_count).toBe(3);
 
-      const humidAgg = result.aggregations.find((a: any) => a.data_key === 'humidity');
+      const humidAgg = result.aggregations.find(
+        (a: AggregationResult) => a.data_key === 'humidity'
+      );
       expect(humidAgg).toBeDefined();
-      expect(humidAgg.unit).toBe('%');
-      expect(humidAgg.average).toBeCloseTo(60, 0); // (50 + 60 + 70) / 3 = 60
-      expect(humidAgg.max).toBe(70);
-      expect(humidAgg.min).toBe(50);
+      expect(humidAgg?.unit).toBe('%');
+      expect(humidAgg?.average).toBeCloseTo(60, 0); // (50 + 60 + 70) / 3 = 60
+      expect(humidAgg?.max).toBe(70);
+      expect(humidAgg?.min).toBe(50);
     });
 
     it('应该拒绝无权限访问的分组', async () => {

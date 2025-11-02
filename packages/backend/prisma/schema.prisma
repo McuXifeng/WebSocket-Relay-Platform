@@ -246,6 +246,7 @@ model AlertHistory {
   @@index([alert_rule_id, triggered_at])
   @@index([triggered_at])
   @@index([status])
+  @@index([alert_rule_id, device_id, triggered_at]) // Story 7.2: 告警去重查询优化索引
   @@map("alert_history")
 }
 

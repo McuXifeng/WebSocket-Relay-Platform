@@ -237,15 +237,30 @@ export async function deleteAlertHistory(alertId: string): Promise<void> {
  * 调用 POST /api/alert-history/batch/read API
  * 需要 JWT 认证 (通过 apiClient 拦截器自动附加)
  *
- * @param data 请求数据 (包含告警ID数组)
- * @returns Promise<{ updated: number }> 更新的数量
+ * @param data 请求数据 (包含告警ID数组和可选的端点ID)
+ * @returns Promise<{ count: number }> 更新的数量
  * @throws {AxiosError} API 请求失败时抛出错误
  */
 export async function batchMarkAlertAsRead(
   data: MarkAlertAsReadRequest
-): Promise<{ updated: number }> {
-  const response = await api.post<{ data: { updated: number } }>('/alert-history/batch/read', data);
-  return (response as unknown as { data: { updated: number } }).data;
+): Promise<{ count: number }> {
+  const response = await api.post<{ data: { count: number } }>('/alert-history/batch/read', data);
+  return (response as unknown as { data: { count: number } }).data;
+}
+
+/**
+ * 标记所有未读告警为已读
+ *
+ * 调用 POST /api/alert-history/batch/read API（不传 ids）
+ * 需要 JWT 认证 (通过 apiClient 拦截器自动附加)
+ *
+ * @param endpointId 可选的端点ID (如果指定，则只标记该端点的未读告警)
+ * @returns Promise<{ count: number }> 更新的数量
+ * @throws {AxiosError} API 请求失败时抛出错误
+ */
+export async function markAllAlertsAsRead(endpointId?: string): Promise<{ count: number }> {
+  const data: MarkAlertAsReadRequest = endpointId ? { endpoint_id: endpointId } : {};
+  return batchMarkAlertAsRead(data);
 }
 
 /**
@@ -291,7 +306,7 @@ export async function batchDeleteAlertHistory(
 /**
  * 获取未读告警数量
  *
- * 调用 GET /api/alert-history/unread-count API
+ * 调用 GET /api/alert-history/unread/count API
  * 需要 JWT 认证 (通过 apiClient 拦截器自动附加)
  *
  * @param endpointId 可选的端点ID (如果指定，则只统计该端点的未读告警)
@@ -300,7 +315,7 @@ export async function batchDeleteAlertHistory(
  */
 export async function getUnreadAlertCount(endpointId?: string): Promise<number> {
   const params = endpointId ? { endpoint_id: endpointId } : undefined;
-  const response = await api.get<{ data: GetUnreadCountResponse }>('/alert-history/unread-count', {
+  const response = await api.get<{ data: GetUnreadCountResponse }>('/alert-history/unread/count', {
     params,
   });
   return (response as unknown as { data: GetUnreadCountResponse }).data.count;
