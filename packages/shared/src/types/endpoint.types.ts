@@ -21,6 +21,11 @@ export interface Endpoint {
   custom_header: string | null; // 自定义帧头 (仅在 CUSTOM_HEADER 模式下使用)
   created_at: Date; // 创建时间
   last_active_at: Date | null; // 最后活跃时间
+  // Epic 10 Story 10.2: 禁用功能字段
+  is_disabled: boolean; // 端点禁用状态(true表示被禁用)
+  disabled_at: Date | null; // 禁用时间
+  disabled_reason: string | null; // 禁用原因
+  disabled_by: string | null; // 禁用操作者ID
 }
 
 /**

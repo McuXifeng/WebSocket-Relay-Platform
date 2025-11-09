@@ -116,6 +116,15 @@ export async function getCurrentUser(
       is_admin: user.is_admin,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       created_at: user.created_at,
+      // Epic 10 Story 10.2: 封禁功能字段
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      is_active: user.is_active,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      banned_at: user.banned_at,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      banned_reason: user.banned_reason,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      banned_by: user.banned_by,
     };
 
     res.status(200).json({
@@ -214,6 +223,15 @@ export async function updateProfile(
       is_admin: updatedUser.is_admin,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       created_at: updatedUser.created_at,
+      // Epic 10 Story 10.2: 封禁功能字段
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      is_active: updatedUser.is_active,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      banned_at: updatedUser.banned_at,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      banned_reason: updatedUser.banned_reason,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      banned_by: updatedUser.banned_by,
     };
 
     res.status(200).json({

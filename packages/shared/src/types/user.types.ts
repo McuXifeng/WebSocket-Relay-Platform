@@ -14,6 +14,11 @@ export interface User {
   password_hash: string;
   is_admin: boolean;
   created_at: Date;
+  // Epic 10 Story 10.2: 封禁功能字段
+  is_active: boolean; // 账户激活状态(false表示被封禁)
+  banned_at: Date | null; // 封禁时间
+  banned_reason: string | null; // 封禁原因
+  banned_by: string | null; // 封禁操作者ID
 }
 
 /**
@@ -26,6 +31,11 @@ export interface UserPublic {
   email: string;
   is_admin: boolean;
   created_at: Date;
+  // Epic 10 Story 10.2: 封禁功能字段
+  is_active: boolean; // 账户激活状态(false表示被封禁)
+  banned_at: Date | null; // 封禁时间
+  banned_reason: string | null; // 封禁原因
+  banned_by: string | null; // 封禁操作者ID
 }
 
 /**
@@ -65,6 +75,11 @@ export interface UserListItem {
   is_admin: boolean;
   created_at: string;
   endpoint_count: number;
+  // Epic 10 Story 10.4: 封禁功能字段
+  is_active: boolean; // 账户激活状态(false表示被封禁)
+  banned_at: string | null; // 封禁时间
+  banned_reason: string | null; // 封禁原因
+  banned_by: string | null; // 封禁操作者ID
 }
 
 /**

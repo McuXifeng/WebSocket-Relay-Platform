@@ -9,6 +9,7 @@ import {
   BookOutlined,
   BarChartOutlined,
   TeamOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
@@ -96,6 +97,14 @@ function MainLayout() {
               label: '用户管理',
               onClick: () => {
                 void navigate('/admin/users');
+              },
+            },
+            {
+              key: 'admin-ban-logs',
+              icon: <HistoryOutlined />,
+              label: '封禁日志',
+              onClick: () => {
+                void navigate('/admin/ban-logs');
               },
             },
           ],

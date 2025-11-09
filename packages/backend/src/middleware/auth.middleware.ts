@@ -12,12 +12,17 @@ import type { JwtPayload } from '@websocket-relay/shared';
 /**
  * JWT 认证中间件
  * 验证请求头中的 JWT Token 并将解码后的用户信息附加到 req.user
+ * Epic 10 Story 10.3: 增加is_active状态检查
  *
  * @param req - Express 请求对象
  * @param res - Express 响应对象
  * @param next - Express 下一个中间件函数
  */
-export const authenticateToken = (req: Request, _res: Response, next: NextFunction): void => {
+export const authenticateToken = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     // 从 Authorization 头提取 token (格式: "Bearer TOKEN")
     const authHeader = req.headers.authorization;
@@ -31,6 +36,33 @@ export const authenticateToken = (req: Request, _res: Response, next: NextFuncti
     // 验证 token
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+
+    // Epic 10 Story 10.3: JWT验证通过后,从数据库查询用户is_active状态
+    const prisma = (await import('../config/database.js')).default;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const user = await prisma.user.findUnique({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      where: { id: decoded.userId },
+      select: {
+        is_active: true,
+        banned_at: true,
+        banned_reason: true,
+      },
+    });
+
+    // 如果用户不存在,返回401错误
+    if (!user) {
+      throw new AppError('INVALID_TOKEN', '用户不存在', 401);
+    }
+
+    // Epic 10 Story 10.3: 如果is_active=false,抛出USER_BANNED错误
+    if (!user.is_active) {
+      throw new AppError(
+        'USER_BANNED',
+        `账户已被封禁,原因: ${user.banned_reason ?? '无'}, 封禁时间: ${user.banned_at?.toISOString() ?? '未知'}`,
+        403
+      );
+    }
 
     // 将解码后的 payload 附加到 req.user
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

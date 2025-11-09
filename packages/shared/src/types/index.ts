@@ -100,3 +100,13 @@ export type {
   SendBatchControlResponse,
   DeleteDeviceGroupResponse,
 } from './device-group.types';
+
+// Ban types (Epic 10 Story 10.3)
+export type {
+  BanUserRequest,
+  DisableEndpointRequest,
+  BanLogQuery,
+  BanLog,
+  BanLogResponse,
+  BanLogWithOperator,
+} from './ban.types';

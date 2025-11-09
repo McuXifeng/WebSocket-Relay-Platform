@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Card, Form, Input, Button, Typography, message } from 'antd';
+import { Card, Form, Input, Button, Typography, message, Modal } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { LoginRequest } from '@shared/types/auth.types';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -35,6 +36,7 @@ function LoginPage() {
    * 错误处理：
    * - api.ts 拦截器已统一处理错误显示，组件不需要手动调用 message.error()
    * - catch 块仅用于静默处理或日志记录
+   * - Epic 10 Story 10.4: 检测用户被封禁错误,显示封禁详情Modal
    *
    * 修复 CODE-001: 提取为独立 async 函数，提高代码可读性
    */
@@ -51,7 +53,57 @@ function LoginPage() {
       // 跳转到 Dashboard
       void navigate('/dashboard');
     } catch (error: unknown) {
-      // api.ts 拦截器已经显示了错误消息
+      // Epic 10 Story 10.4: 检查是否为用户被封禁错误
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object'
+      ) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const response = error.response as {
+          status?: number;
+          data?: { message?: string; user?: { banned_at?: string; banned_reason?: string } };
+        };
+
+        // 检查是否为403错误且错误消息包含"封禁"关键词
+        if (
+          response.status === 403 &&
+          response.data?.message &&
+          (response.data.message.includes('封禁') || response.data.message.includes('banned'))
+        ) {
+          // 显示封禁详情Modal
+          Modal.error({
+            title: '账户已被封禁',
+            icon: <ExclamationCircleOutlined />,
+            content: (
+              <div>
+                <p>
+                  您的账户已被管理员封禁,无法登录。
+                  {response.data.user?.banned_at && (
+                    <>
+                      <br />
+                      <strong>封禁时间:</strong> {response.data.user.banned_at}
+                    </>
+                  )}
+                </p>
+                {response.data.user?.banned_reason && (
+                  <p>
+                    <strong>封禁原因:</strong> {response.data.user.banned_reason}
+                  </p>
+                )}
+                <p style={{ marginTop: 16, color: '#666' }}>如有疑问,请联系管理员。</p>
+              </div>
+            ),
+            okText: '确定',
+          });
+          return; // 不再继续执行默认错误处理
+        }
+      }
+
+      // 其他错误: api.ts 拦截器已经显示了错误消息
       // 这里只需要记录日志
       console.error('Login failed:', error);
     } finally {

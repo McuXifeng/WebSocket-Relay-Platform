@@ -14,6 +14,7 @@ import DeviceGroupDetailPage from './pages/DeviceGroupDetailPage';
 import InviteCodesPage from './pages/admin/InviteCodesPage';
 import UsersPage from './pages/admin/UsersPage';
 import AdminUserEndpointsPage from './pages/admin/AdminUserEndpointsPage';
+import BanLogsPage from './pages/admin/BanLogsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/common/AdminRoute';
 
@@ -135,6 +136,14 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminUserEndpointsPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: 'admin/ban-logs',
+        element: (
+          <AdminRoute>
+            <BanLogsPage />
           </AdminRoute>
         ),
       },

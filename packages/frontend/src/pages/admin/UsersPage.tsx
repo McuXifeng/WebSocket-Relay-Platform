@@ -14,12 +14,19 @@ import {
   Segmented,
   Popover,
   Descriptions,
+  Button,
+  Modal,
+  Form,
+  Alert,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { format } from 'date-fns';
 import { TeamOutlined } from '@ant-design/icons';
 import type { UserListItem } from '@websocket-relay/shared';
 import { getUsers } from '@/services/admin.service';
+import { banUser, unbanUser } from '@/services/ban.service';
+
+const { TextArea } = Input;
 
 const { Title, Text, Link } = Typography;
 
@@ -56,6 +63,12 @@ function UsersPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [endpointCountFilter, setEndpointCountFilter] = useState<EndpointCountFilter>('all');
+
+  // 封禁相关状态
+  const [banModalVisible, setBanModalVisible] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserListItem | null>(null);
+  const [banLoading, setBanLoading] = useState<boolean>(false);
+  const [form] = Form.useForm();
 
   /**
    * 加载用户列表(组件挂载时)
@@ -137,6 +150,59 @@ function UsersPage() {
   };
 
   /**
+   * 打开封禁用户弹窗
+   */
+  const handleOpenBanModal = (user: UserListItem) => {
+    setCurrentUser(user);
+    setBanModalVisible(true);
+    form.resetFields();
+  };
+
+  /**
+   * 关闭封禁用户弹窗
+   */
+  const handleCloseBanModal = () => {
+    setBanModalVisible(false);
+    setCurrentUser(null);
+    form.resetFields();
+  };
+
+  /**
+   * 确认封禁用户
+   */
+  const handleConfirmBan = async () => {
+    if (!currentUser) return;
+
+    try {
+      setBanLoading(true);
+      const values = form.getFieldsValue() as { reason?: string };
+      await banUser(currentUser.id, values.reason);
+      void message.success('用户已封禁');
+      handleCloseBanModal();
+      await fetchUsers(); // 刷新用户列表
+    } catch (error) {
+      console.error('封禁用户失败:', error);
+      void message.error('封禁用户失败,请稍后重试');
+    } finally {
+      setBanLoading(false);
+    }
+  };
+
+  /**
+   * 解封用户
+   */
+  const handleUnbanUser = async (user: UserListItem) => {
+    try {
+      await unbanUser(user.id);
+      void message.success('用户已解封');
+      await fetchUsers(); // 刷新用户列表
+    } catch (error) {
+      console.error('解封用户失败:', error);
+      void message.error('解封用户失败,请稍后重试');
+    }
+  };
+
+  /**
    * 格式化日期时间
    */
   const formatDateTime = (date: string): string => {
@@ -201,6 +267,34 @@ function UsersPage() {
         ),
     },
     {
+      title: '状态',
+      key: 'is_active',
+      render: (_text: unknown, record: UserListItem) => {
+        if (record.is_active) {
+          return <Badge status="success" text="活跃" />;
+        } else {
+          // 被封禁状态 - 显示红色Badge和Popover提示
+          const content = (
+            <div style={{ maxWidth: '250px' }}>
+              <p>
+                <strong>封禁时间:</strong>{' '}
+                {record.banned_at ? formatDateTime(record.banned_at) : '未知'}
+              </p>
+              <p>
+                <strong>封禁原因:</strong> {record.banned_reason || '无'}
+              </p>
+            </div>
+          );
+          return (
+            <Popover content={content} title="封禁详情" trigger="hover">
+              <Badge status="error" text="已封禁" style={{ cursor: 'pointer' }} />
+            </Popover>
+          );
+        }
+      },
+      sorter: (a, b) => Number(b.is_active) - Number(a.is_active), // 已封禁用户在前
+    },
+    {
       title: '端点数量',
       dataIndex: 'endpoint_count',
       key: 'endpoint_count',
@@ -218,7 +312,32 @@ function UsersPage() {
       key: 'created_at',
       render: (date: string) => formatDateTime(date),
       sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-      defaultSortOrder: 'descend', // 默认降序（最新用户在前）
+      defaultSortOrder: 'descend', // 默认降序(最新用户在前)
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      fixed: 'right' as const,
+      width: 120,
+      render: (_text: unknown, record: UserListItem) => {
+        // 如果是管理员自己,不显示操作按钮(避免自己封禁自己)
+        // 注意: 这里需要获取当前登录用户ID,暂时简化处理
+        if (record.is_active) {
+          // 用户活跃 - 显示封禁按钮
+          return (
+            <Button type="primary" danger size="small" onClick={() => handleOpenBanModal(record)}>
+              封禁
+            </Button>
+          );
+        } else {
+          // 用户被封禁 - 显示解封按钮
+          return (
+            <Button type="primary" size="small" onClick={() => void handleUnbanUser(record)}>
+              解封
+            </Button>
+          );
+        }
+      },
     },
   ];
 
@@ -339,6 +458,51 @@ function UsersPage() {
             />
           </Card>
         )}
+
+        {/* 封禁用户Modal */}
+        <Modal
+          title="封禁用户"
+          open={banModalVisible}
+          onCancel={handleCloseBanModal}
+          footer={[
+            <Button key="cancel" onClick={handleCloseBanModal}>
+              取消
+            </Button>,
+            <Button
+              key="confirm"
+              type="primary"
+              danger
+              loading={banLoading}
+              onClick={() => void handleConfirmBan()}
+            >
+              确认封禁
+            </Button>,
+          ]}
+        >
+          <Alert
+            message="警告"
+            description="封禁后用户将无法登录,请谨慎操作!"
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+          <Form form={form} layout="vertical">
+            <Form.Item
+              label="封禁原因"
+              name="reason"
+              rules={[{ max: 255, message: '封禁原因不能超过255字符' }]}
+            >
+              <TextArea rows={4} placeholder="请输入封禁原因(可选)" />
+            </Form.Item>
+          </Form>
+          {currentUser && (
+            <div style={{ marginTop: 16 }}>
+              <Text type="secondary">
+                即将封禁用户: <strong>{currentUser.username}</strong>
+              </Text>
+            </div>
+          )}
+        </Modal>
       </div>
     </div>
   );

@@ -1,10 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, Table, Descriptions, Badge, Typography, Spin, message } from 'antd';
+import {
+  Card,
+  Table,
+  Descriptions,
+  Badge,
+  Typography,
+  Spin,
+  message,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Alert,
+  Popover,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { format } from 'date-fns';
 import type { UserListItem, EndpointWithUrl } from '@websocket-relay/shared';
 import { getUsers, getUserEndpoints } from '@/services/admin.service';
+import { disableEndpoint, enableEndpoint } from '@/services/ban.service';
+
+const { TextArea } = Input;
 
 const { Title, Text } = Typography;
 
@@ -30,6 +47,12 @@ function AdminUserEndpointsPage() {
   const [endpoints, setEndpoints] = useState<EndpointWithUrl[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [endpointsLoading, setEndpointsLoading] = useState<boolean>(true);
+
+  // 禁用相关状态
+  const [disableModalVisible, setDisableModalVisible] = useState<boolean>(false);
+  const [currentEndpoint, setCurrentEndpoint] = useState<EndpointWithUrl | null>(null);
+  const [disableLoading, setDisableLoading] = useState<boolean>(false);
+  const [form] = Form.useForm();
 
   /**
    * 加载用户信息和端点列表
@@ -81,6 +104,61 @@ function AdminUserEndpointsPage() {
   };
 
   /**
+   * 打开禁用端点弹窗
+   */
+  const handleOpenDisableModal = (endpoint: EndpointWithUrl) => {
+    setCurrentEndpoint(endpoint);
+    setDisableModalVisible(true);
+    form.resetFields();
+  };
+
+  /**
+   * 关闭禁用端点弹窗
+   */
+  const handleCloseDisableModal = () => {
+    setDisableModalVisible(false);
+    setCurrentEndpoint(null);
+    form.resetFields();
+  };
+
+  /**
+   * 确认禁用端点
+   */
+  const handleConfirmDisable = async () => {
+    if (!currentEndpoint || !userId) return;
+
+    try {
+      setDisableLoading(true);
+      const values = form.getFieldsValue() as { reason?: string };
+      await disableEndpoint(currentEndpoint.id, values.reason);
+      void message.success('端点已禁用');
+      handleCloseDisableModal();
+      await fetchEndpoints(userId); // 刷新端点列表
+    } catch (error) {
+      console.error('禁用端点失败:', error);
+      void message.error('禁用端点失败,请稍后重试');
+    } finally {
+      setDisableLoading(false);
+    }
+  };
+
+  /**
+   * 启用端点
+   */
+  const handleEnableEndpoint = async (endpoint: EndpointWithUrl) => {
+    if (!userId) return;
+
+    try {
+      await enableEndpoint(endpoint.id);
+      void message.success('端点已启用');
+      await fetchEndpoints(userId); // 刷新端点列表
+    } catch (error) {
+      console.error('启用端点失败:', error);
+      void message.error('启用端点失败,请稍后重试');
+    }
+  };
+
+  /**
    * 格式化日期时间
    */
   const formatDateTime = (date: string | Date | null): string => {
@@ -108,6 +186,34 @@ function AdminUserEndpointsPage() {
       key: 'endpoint_id',
     },
     {
+      title: '状态',
+      key: 'is_disabled',
+      render: (_text: unknown, record: EndpointWithUrl) => {
+        if (!record.is_disabled) {
+          return <Badge status="success" text="正常" />;
+        } else {
+          // 被禁用状态 - 显示红色Badge和Popover提示
+          const content = (
+            <div style={{ maxWidth: '250px' }}>
+              <p>
+                <strong>禁用时间:</strong>{' '}
+                {record.disabled_at ? formatDateTime(record.disabled_at) : '未知'}
+              </p>
+              <p>
+                <strong>禁用原因:</strong> {record.disabled_reason || '无'}
+              </p>
+            </div>
+          );
+          return (
+            <Popover content={content} title="禁用详情" trigger="hover">
+              <Badge status="error" text="已禁用" style={{ cursor: 'pointer' }} />
+            </Popover>
+          );
+        }
+      },
+      sorter: (a, b) => Number(a.is_disabled) - Number(b.is_disabled), // 已禁用端点在前
+    },
+    {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -118,6 +224,34 @@ function AdminUserEndpointsPage() {
       dataIndex: 'last_active_at',
       key: 'last_active_at',
       render: (date: string | null) => formatDateTime(date),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      fixed: 'right' as const,
+      width: 120,
+      render: (_text: unknown, record: EndpointWithUrl) => {
+        if (!record.is_disabled) {
+          // 端点正常 - 显示禁用按钮
+          return (
+            <Button
+              type="primary"
+              danger
+              size="small"
+              onClick={() => handleOpenDisableModal(record)}
+            >
+              禁用
+            </Button>
+          );
+        } else {
+          // 端点被禁用 - 显示启用按钮
+          return (
+            <Button type="primary" size="small" onClick={() => void handleEnableEndpoint(record)}>
+              启用
+            </Button>
+          );
+        }
+      },
     },
   ];
 
@@ -218,6 +352,52 @@ function AdminUserEndpointsPage() {
             />
           )}
         </Card>
+
+        {/* 禁用端点Modal */}
+        <Modal
+          title="禁用端点"
+          open={disableModalVisible}
+          onCancel={handleCloseDisableModal}
+          footer={[
+            <Button key="cancel" onClick={handleCloseDisableModal}>
+              取消
+            </Button>,
+            <Button
+              key="confirm"
+              type="primary"
+              danger
+              loading={disableLoading}
+              onClick={() => void handleConfirmDisable()}
+            >
+              确认禁用
+            </Button>,
+          ]}
+        >
+          <Alert
+            message="警告"
+            description="禁用后端点将无法建立WebSocket连接,请谨慎操作!"
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+          <Form form={form} layout="vertical">
+            <Form.Item
+              label="禁用原因"
+              name="reason"
+              rules={[{ max: 255, message: '禁用原因不能超过255字符' }]}
+            >
+              <TextArea rows={4} placeholder="请输入禁用原因(可选)" />
+            </Form.Item>
+          </Form>
+          {currentEndpoint && (
+            <div style={{ marginTop: 16 }}>
+              <Text type="secondary">
+                即将禁用端点: <strong>{currentEndpoint.name}</strong> ({currentEndpoint.endpoint_id}
+                )
+              </Text>
+            </div>
+          )}
+        </Modal>
       </div>
     </div>
   );

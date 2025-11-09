@@ -171,6 +171,11 @@ export async function getUsers(_req: Request, res: Response, next: NextFunction)
       is_admin: user.is_admin,
       created_at: user.created_at.toISOString(),
       endpoint_count: user._count.endpoints,
+      // Epic 10 Story 10.4: 封禁功能字段
+      is_active: user.is_active,
+      banned_at: user.banned_at?.toISOString() ?? null,
+      banned_reason: user.banned_reason,
+      banned_by: user.banned_by,
     }));
 
     // 返回成功响应

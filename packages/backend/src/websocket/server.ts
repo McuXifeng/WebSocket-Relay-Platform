@@ -195,6 +195,15 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
   try {
     const endpoint = await prisma.endpoint.findUnique({
       where: { endpoint_id: endpointId },
+      include: {
+        user: {
+          select: {
+            is_active: true,
+            banned_at: true,
+            banned_reason: true,
+          },
+        },
+      },
     });
 
     // 如果 endpoint 不存在,拒绝连接
@@ -214,6 +223,50 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
 
       // 关闭连接
       socket.close(1008, 'Invalid endpoint');
+      return;
+    }
+
+    // Epic 10 Story 10.3: 检查用户is_active状态
+    if (!endpoint.user.is_active) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `Connection rejected: User is banned - userId: ${endpoint.user_id}, reason: ${endpoint.user.banned_reason ?? '无'}`
+      );
+
+      // 发送系统消息通知用户被封禁
+      socket.send(
+        JSON.stringify({
+          type: 'system',
+          level: 'error',
+          message: `账户已被封禁,无法建立连接。封禁原因: ${endpoint.user.banned_reason ?? '无'}, 封禁时间: ${endpoint.user.banned_at?.toISOString() ?? '未知'}`,
+          timestamp: Date.now(),
+        })
+      );
+
+      // 关闭连接
+      socket.close(1008, 'User is banned');
+      return;
+    }
+
+    // Epic 10 Story 10.3: 检查端点is_disabled状态
+    if (endpoint.is_disabled) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `Connection rejected: Endpoint is disabled - endpointId: ${endpointId}, reason: ${endpoint.disabled_reason ?? '无'}`
+      );
+
+      // 发送系统消息通知端点被禁用
+      socket.send(
+        JSON.stringify({
+          type: 'system',
+          level: 'error',
+          message: `端点已被禁用,无法建立连接。禁用原因: ${endpoint.disabled_reason ?? '无'}, 禁用时间: ${endpoint.disabled_at?.toISOString() ?? '未知'}`,
+          timestamp: Date.now(),
+        })
+      );
+
+      // 关闭连接
+      socket.close(1008, 'Endpoint is disabled');
       return;
     }
 

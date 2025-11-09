@@ -130,6 +130,10 @@ export async function registerUser(data: RegisterRequest): Promise<UserPublic> {
     email: user.email,
     is_admin: user.is_admin,
     created_at: user.created_at,
+    is_active: user.is_active,
+    banned_at: user.banned_at,
+    banned_reason: user.banned_reason,
+    banned_by: user.banned_by,
   };
 }
 
@@ -194,6 +198,14 @@ export async function loginUser(data: LoginRequest): Promise<LoginResponse> {
     is_admin: user.is_admin,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     created_at: user.created_at,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    is_active: user.is_active,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    banned_at: user.banned_at,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    banned_reason: user.banned_reason,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    banned_by: user.banned_by,
   };
 
   return {

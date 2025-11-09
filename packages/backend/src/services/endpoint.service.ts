@@ -119,6 +119,10 @@ export async function createEndpoint(
     custom_header: endpoint.custom_header,
     created_at: endpoint.created_at,
     last_active_at: endpoint.last_active_at,
+    is_disabled: endpoint.is_disabled,
+    disabled_at: endpoint.disabled_at,
+    disabled_reason: endpoint.disabled_reason,
+    disabled_by: endpoint.disabled_by,
     websocket_url: buildWebSocketUrl(endpoint.endpoint_id),
   };
 }
@@ -146,6 +150,10 @@ export async function getEndpointsByUserId(userId: string): Promise<EndpointWith
     custom_header: endpoint.custom_header,
     created_at: endpoint.created_at,
     last_active_at: endpoint.last_active_at,
+    is_disabled: endpoint.is_disabled,
+    disabled_at: endpoint.disabled_at,
+    disabled_reason: endpoint.disabled_reason,
+    disabled_by: endpoint.disabled_by,
     websocket_url: buildWebSocketUrl(endpoint.endpoint_id),
   }));
 }
@@ -188,6 +196,10 @@ export async function getEndpointById(
     custom_header: endpoint.custom_header,
     created_at: endpoint.created_at,
     last_active_at: endpoint.last_active_at,
+    is_disabled: endpoint.is_disabled,
+    disabled_at: endpoint.disabled_at,
+    disabled_reason: endpoint.disabled_reason,
+    disabled_by: endpoint.disabled_by,
     websocket_url: buildWebSocketUrl(endpoint.endpoint_id),
   };
 }
@@ -295,6 +307,10 @@ export async function updateForwardingMode(
     custom_header: updatedEndpoint.custom_header,
     created_at: updatedEndpoint.created_at,
     last_active_at: updatedEndpoint.last_active_at,
+    is_disabled: updatedEndpoint.is_disabled,
+    disabled_at: updatedEndpoint.disabled_at,
+    disabled_reason: updatedEndpoint.disabled_reason,
+    disabled_by: updatedEndpoint.disabled_by,
     websocket_url: buildWebSocketUrl(updatedEndpoint.endpoint_id),
   };
 }

@@ -15,6 +15,10 @@ export function register(data: RegisterRequest): Promise<UserPublic> {
     email: data.email,
     is_admin: false,
     created_at: new Date(),
+    is_active: true,
+    banned_at: null,
+    banned_reason: null,
+    banned_by: null,
   });
 }
 
@@ -31,6 +35,10 @@ export function login(credentials: LoginRequest): Promise<LoginResponse> {
       email: `${credentials.username}@example.com`,
       is_admin: false,
       created_at: new Date(),
+      is_active: true,
+      banned_at: null,
+      banned_reason: null,
+      banned_by: null,
     },
   });
 }
@@ -46,6 +54,10 @@ export function getCurrentUser(): Promise<UserPublic> {
     email: 'testuser@example.com',
     is_admin: false,
     created_at: new Date(),
+    is_active: true,
+    banned_at: null,
+    banned_reason: null,
+    banned_by: null,
   });
 }
 
