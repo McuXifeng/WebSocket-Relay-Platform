@@ -1,39 +1,20 @@
 {
   "compilerOptions": {
-    /* Language and Environment */
     "target": "ES2022",
-    "lib": ["ES2022"],
-    "jsx": "react-jsx",
-
-    /* Modules */
     "module": "ESNext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
-
-    /* Emit */
-    "noEmit": true,
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-
-    /* Interop Constraints */
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true,
-
-    /* Type Checking */
+    "lib": ["ES2022"],
+    "moduleResolution": "node",
     "strict": true,
-    "strictNullChecks": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-
-    /* Completeness */
-    "skipLibCheck": true
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
   },
-  "include": [],
-  "exclude": ["node_modules", "dist", "build"]
+  "references": [
+    { "path": "./packages/backend" },
+    { "path": "./packages/frontend" },
+    { "path": "./packages/shared" }
+  ],
+  "files": [],
+  "include": []
 }

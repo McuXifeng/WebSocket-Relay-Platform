@@ -28,6 +28,31 @@ export interface CardConfig {
   }>;
   aggregation?: 'minute' | 'hour' | 'day';
   maxDataPoints?: number;
+
+  // 仪表盘类型卡片的额外配置
+  gaugeConfig?: {
+    min?: number; // 最小值，默认 0
+    max?: number; // 最大值，默认 100
+    unit?: string; // 单位，如 % 或 °C
+    colorRanges?: Array<{
+      threshold: number; // 阈值比例（0-1），如 0.6 表示 60%
+      color: string; // 颜色，如 #52c41a
+    }>;
+  };
+
+  // 状态指示器类型卡片的额外配置
+  statusConfig?: {
+    statusMap: {
+      [key: string]: {
+        color: 'success' | 'warning' | 'error' | 'default' | 'processing';
+        text: string;
+      };
+    };
+    defaultStatus?: {
+      color: 'success' | 'warning' | 'error' | 'default' | 'processing';
+      text: string;
+    };
+  };
 }
 
 export interface CardPosition {

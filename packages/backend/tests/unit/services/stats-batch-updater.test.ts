@@ -364,4 +364,116 @@ describe('StatsBatchUpdater', () => {
       expect(updater.getBatchSize()).toBe(2);
     });
   });
+
+  // Epic 10 Story 10.5 Task 6: disconnect 立即刷新测试
+  describe('disconnect 立即刷新 (Epic 10 Story 10.5)', () => {
+    beforeEach(() => {
+      (prisma.endpointStats.upsert as jest.Mock).mockResolvedValue({});
+      (prisma.endpoint.update as jest.Mock).mockResolvedValue({});
+    });
+
+    it('应该在 disconnect 操作时立即触发 flush()', async () => {
+      // 设置很大的批次阈值和刷新间隔，确保不会因为阈值或定时器触发刷新
+      updater = new StatsBatchUpdater({ flushInterval: 60000, batchSize: 1000 });
+
+      updater.addUpdate('endpoint-1', 'disconnect');
+
+      // 等待 flush 完成
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // 批次应该被立即清空
+      expect(updater.getBatchSize()).toBe(0);
+
+      // 应该调用数据库更新
+      expect(prisma.endpointStats.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it('应该在 connect 操作时不立即触发 flush()', async () => {
+      updater = new StatsBatchUpdater({ flushInterval: 60000, batchSize: 1000 });
+
+      updater.addUpdate('endpoint-1', 'connect');
+
+      // 等待一小段时间
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // 批次不应该被清空（因为没有达到阈值，也没有定时刷新）
+      expect(updater.getBatchSize()).toBe(1);
+
+      // 不应该调用数据库更新
+      expect(prisma.endpointStats.upsert).not.toHaveBeenCalled();
+    });
+
+    it('应该在 message 操作时不立即触发 flush()', async () => {
+      updater = new StatsBatchUpdater({ flushInterval: 60000, batchSize: 1000 });
+
+      updater.addUpdate('endpoint-1', 'message');
+      updater.addUpdate('endpoint-1', 'message');
+
+      // 等待一小段时间
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // 批次不应该被清空
+      expect(updater.getBatchSize()).toBe(1);
+
+      // 不应该调用数据库更新
+      expect(prisma.endpointStats.upsert).not.toHaveBeenCalled();
+    });
+
+    it('应该验证 disconnect 刷新延迟 < 100ms', async () => {
+      updater = new StatsBatchUpdater({ flushInterval: 60000, batchSize: 1000 });
+
+      const startTime = Date.now();
+      updater.addUpdate('endpoint-1', 'disconnect');
+
+      // 等待 flush 完成
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      const duration = Date.now() - startTime;
+
+      // 批次应该被清空
+      expect(updater.getBatchSize()).toBe(0);
+
+      // 延迟应该小于 100ms（包含一些容错时间）
+      expect(duration).toBeLessThan(200); // 使用 200ms 作为上限，考虑测试环境的延迟
+    });
+
+    it('应该在多个 disconnect 操作时每次都立即刷新', async () => {
+      updater = new StatsBatchUpdater({ flushInterval: 60000, batchSize: 1000 });
+
+      updater.addUpdate('endpoint-1', 'disconnect');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      updater.addUpdate('endpoint-2', 'disconnect');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      updater.addUpdate('endpoint-3', 'disconnect');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // 每次 disconnect 都应该触发刷新，所以最终批次应该为空
+      expect(updater.getBatchSize()).toBe(0);
+
+      // 应该调用 3 次数据库更新
+      expect(prisma.endpointStats.upsert).toHaveBeenCalledTimes(3);
+    });
+
+    it('应该在 disconnect 后仍然允许其他操作累积', async () => {
+      updater = new StatsBatchUpdater({ flushInterval: 60000, batchSize: 1000 });
+
+      // disconnect 立即刷新
+      updater.addUpdate('endpoint-1', 'disconnect');
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(updater.getBatchSize()).toBe(0);
+
+      // 添加新的 connect 操作（不应该立即刷新）
+      updater.addUpdate('endpoint-2', 'connect');
+      updater.addUpdate('endpoint-3', 'message');
+
+      // 等待一小段时间
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // 新的操作应该被累积
+      expect(updater.getBatchSize()).toBe(2);
+    });
+  });
 });

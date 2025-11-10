@@ -56,32 +56,33 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
   // 组件挂载时加载端点列表
   useEffect(() => {
     if (visible) {
-      loadEndpoints();
+      void loadEndpoints();
 
       // 如果是编辑模式，填充表单
       if (card) {
         setCardType(card.cardType);
 
         // 处理配置对象，转换时间范围格式
-        const config = typeof card.config === 'string' ? JSON.parse(card.config) : card.config;
-        let formConfig = { ...config };
+        const config =
+          typeof card.config === 'string'
+            ? (JSON.parse(card.config) as Record<string, unknown>)
+            : (card.config as Record<string, unknown>);
+        let formConfig: Record<string, unknown> = { ...config };
 
         // 如果是图表类型且有自定义时间范围，需要转换为 Dayjs 数组
-        if (
-          card.cardType === 'chart' &&
-          config.timeRange?.type === 'custom' &&
-          config.timeRange.custom
-        ) {
-          formConfig = {
-            ...config,
-            timeRange: {
-              type: 'custom',
-              custom: [
-                dayjs(config.timeRange.custom.startTime),
-                dayjs(config.timeRange.custom.endTime),
-              ],
-            },
-          };
+        if (card.cardType === 'chart') {
+          const timeRange = config.timeRange as
+            | { type: string; custom?: { startTime: string; endTime: string } }
+            | undefined;
+          if (timeRange?.type === 'custom' && timeRange.custom) {
+            formConfig = {
+              ...config,
+              timeRange: {
+                type: 'custom',
+                custom: [dayjs(timeRange.custom.startTime), dayjs(timeRange.custom.endTime)],
+              },
+            };
+          }
         }
 
         form.setFieldsValue({
@@ -95,10 +96,10 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
 
         // 加载设备和数据字段
         if (card.endpointId) {
-          loadDevices(card.endpointId);
+          void loadDevices(card.endpointId);
         }
         if (card.endpointId && card.deviceId) {
-          loadDataKeys(card.endpointId, card.deviceId);
+          void loadDataKeys(card.endpointId, card.deviceId);
         }
       } else {
         // 创建模式，设置默认位置
@@ -129,7 +130,7 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
       setEndpoints(loadedEndpoints);
     } catch (error) {
       console.error('Failed to load endpoints:', error);
-      message.error('加载端点列表失败');
+      void message.error('加载端点列表失败');
     }
   };
 
@@ -137,14 +138,14 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
    * 端点选择变化时加载设备列表
    * CRITICAL: 图表类型也需要加载设备列表,因为数据源配置需要选择设备
    */
-  const handleEndpointChange = async (endpointId: string) => {
+  const handleEndpointChange = (endpointId: string) => {
     // 清空设备和数据字段
     form.setFieldsValue({ deviceId: undefined, dataKey: undefined });
     setDevices([]);
     setDataKeys([]);
 
     // 所有卡片类型都需要加载设备列表(图表类型在数据源配置中需要)
-    await loadDevices(endpointId);
+    void loadDevices(endpointId);
   };
 
   /**
@@ -157,7 +158,7 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
       setDevices(response.devices);
     } catch (error) {
       console.error('Failed to load devices:', error);
-      message.error('加载设备列表失败');
+      void message.error('加载设备列表失败');
     } finally {
       setLoadingDevices(false);
     }
@@ -166,18 +167,18 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
   /**
    * 设备选择变化时加载数据字段列表
    */
-  const handleDeviceChange = async (deviceId: string) => {
+  const handleDeviceChange = (deviceId: string) => {
     // 清空数据字段
     form.setFieldsValue({ dataKey: undefined });
     setDataKeys([]);
 
-    const endpointId = form.getFieldValue('endpointId');
+    const endpointId = form.getFieldValue('endpointId') as string | undefined;
     if (!endpointId) {
-      message.error('请先选择端点');
+      void message.error('请先选择端点');
       return;
     }
 
-    await loadDataKeys(endpointId, deviceId);
+    void loadDataKeys(endpointId, deviceId);
   };
 
   /**
@@ -189,11 +190,14 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
       setDataKeys(response.dataKeys);
 
       if (response.dataKeys.length === 0) {
-        message.info('该设备暂无数据字段，您可以手动输入字段名称，创建卡片后等待设备上报数据', 5);
+        void message.info(
+          '该设备暂无数据字段，您可以手动输入字段名称，创建卡片后等待设备上报数据',
+          5
+        );
       }
     } catch (error) {
       console.error('Failed to load data keys:', error);
-      message.error('加载数据字段失败');
+      void message.error('加载数据字段失败');
     }
   };
 
@@ -206,31 +210,32 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
       const values = await form.validateFields();
 
       // 构建配置对象
-      const config: any = {
+      const config: Record<string, unknown> = {
         unit: values.config?.unit,
         color: values.config?.color,
         precision: values.config?.precision,
-        threshold: values.config?.threshold,
+        threshold: values.config?.threshold as Record<string, number> | undefined,
         refreshInterval: values.config?.refreshInterval,
       };
 
       // 如果是图表类型，添加图表特定配置
       if (values.cardType === 'chart') {
-        config.chartType = values.config?.chartType;
-        config.dataSources = values.config?.dataSources;
-        config.aggregation = values.config?.aggregation;
+        config.chartType = values.config?.chartType as string | undefined;
+        config.dataSources = values.config?.dataSources as unknown[] | undefined;
+        config.aggregation = values.config?.aggregation as string | undefined;
         config.maxDataPoints = values.config?.maxDataPoints;
 
         // 处理时间范围配置（需要转换 DatePicker.RangePicker 的值）
         if (values.config?.timeRange) {
-          const timeRange = values.config.timeRange;
+          const timeRange = values.config.timeRange as Record<string, unknown>;
           if (timeRange.type === 'custom' && timeRange.custom && Array.isArray(timeRange.custom)) {
             // DatePicker.RangePicker 返回的是 [Dayjs, Dayjs]，需要转换为字符串
+            const customRange = timeRange.custom as Array<{ toISOString: () => string }>;
             config.timeRange = {
               type: 'custom',
               custom: {
-                startTime: timeRange.custom[0].toISOString(),
-                endTime: timeRange.custom[1].toISOString(),
+                startTime: customRange[0].toISOString(),
+                endTime: customRange[1].toISOString(),
               },
             };
           } else {
@@ -239,21 +244,53 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
         }
       }
 
+      // 如果是仪表盘类型，添加仪表盘特定配置
+      if (values.cardType === 'gauge') {
+        config.gaugeConfig = values.config?.gaugeConfig as Record<string, unknown> | undefined;
+      }
+
+      // 如果是状态指示器类型，添加状态指示器特定配置
+      if (values.cardType === 'status') {
+        // 将 statusMap 数组转换为对象格式(Form.List 存储为数组)
+        const statusMapArray = (values.config?.statusConfig?.statusMap || []) as Array<{
+          value: string;
+          color: string;
+          text: string;
+        }>;
+        const statusMap: Record<string, { color: string; text: string }> = {};
+
+        statusMapArray.forEach((item) => {
+          if (item.value) {
+            statusMap[item.value] = {
+              color: item.color,
+              text: item.text,
+            };
+          }
+        });
+
+        config.statusConfig = {
+          statusMap,
+          defaultStatus: values.config?.statusConfig?.defaultStatus as
+            | Record<string, unknown>
+            | undefined,
+        };
+      }
+
       // 如果是编辑模式，使用现有位置；否则使用默认位置
       const cardData: CreateCardDto = {
         ...values,
         position: card?.position || { x: 0, y: 0, w: 6, h: 4 }, // 图表卡片默认更大
-        config,
+        config: config,
       };
 
       if (card) {
         // 编辑模式
         await updateCard(card.id, cardData);
-        message.success('卡片配置已更新');
+        void message.success('卡片配置已更新');
       } else {
         // 创建模式
         await createCard(cardData);
-        message.success('卡片配置已创建');
+        void message.success('卡片配置已创建');
       }
 
       form.resetFields();
@@ -264,7 +301,7 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
         return;
       }
       console.error('Failed to save card:', error);
-      message.error(card ? '更新卡片配置失败' : '创建卡片配置失败');
+      void message.error(card ? '更新卡片配置失败' : '创建卡片配置失败');
     } finally {
       setLoading(false);
     }
@@ -282,7 +319,7 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
     <Modal
       title={card ? '编辑卡片' : '添加卡片'}
       open={visible}
-      onOk={handleSubmit}
+      onOk={() => void handleSubmit()}
       onCancel={handleCancel}
       confirmLoading={loading}
       width={600}
@@ -306,7 +343,7 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
         >
           <Select
             placeholder="选择卡片类型"
-            onChange={(value) => {
+            onChange={(value: string) => {
               setCardType(value);
               // 切换卡片类型时，重置部分表单字段
               if (value === 'chart') {
@@ -478,7 +515,7 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
               name={['config', 'dataSources']}
               rules={[
                 {
-                  validator: async (_, dataSources) => {
+                  validator: async (_, dataSources: unknown[] | null | undefined) => {
                     if (!dataSources || dataSources.length === 0) {
                       return Promise.reject(new Error('请至少添加一个数据源'));
                     }
@@ -515,19 +552,23 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
                             disabled={devices.length === 0}
                             showSearch
                             optionFilterProp="children"
-                            onChange={async (deviceId: string) => {
+                            onChange={(deviceId: string) => {
                               // 当选择设备时,加载该设备的数据字段列表
-                              const endpointId = form.getFieldValue('endpointId');
+                              const endpointId = form.getFieldValue('endpointId') as
+                                | string
+                                | undefined;
                               if (endpointId && deviceId) {
-                                try {
-                                  const response = await getDeviceDataKeys(endpointId, deviceId);
-                                  setDataKeys(response.dataKeys);
-                                  if (response.dataKeys.length === 0) {
-                                    message.info('该设备暂无数据字段,请手动输入字段名称', 3);
+                                void (async () => {
+                                  try {
+                                    const response = await getDeviceDataKeys(endpointId, deviceId);
+                                    setDataKeys(response.dataKeys);
+                                    if (response.dataKeys.length === 0) {
+                                      void message.info('该设备暂无数据字段,请手动输入字段名称', 3);
+                                    }
+                                  } catch (error) {
+                                    console.error('Failed to load data keys:', error);
                                   }
-                                } catch (error) {
-                                  console.error('Failed to load data keys:', error);
-                                }
+                                })();
                               }
                             }}
                           >
@@ -616,9 +657,11 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
         {/* 通用配置 */}
         {cardType !== 'chart' && <Divider>通用配置</Divider>}
 
-        <Form.Item name={['config', 'unit']} label="数据单位">
-          <Input placeholder="如：°C、%、V（可选）" />
-        </Form.Item>
+        {cardType !== 'chart' && cardType !== 'status' && (
+          <Form.Item name={['config', 'unit']} label="数据单位">
+            <Input placeholder="如：°C、%、V（可选）" />
+          </Form.Item>
+        )}
 
         {/* 数值卡片专属配置 */}
         {cardType === 'statistic' && (
@@ -646,6 +689,177 @@ const CardConfigModal: React.FC<CardConfigModalProps> = ({ visible, card, onOk, 
               >
                 <InputNumber placeholder="危险值" style={{ width: '100%' }} />
               </Form.Item>
+            </Form.Item>
+          </>
+        )}
+
+        {/* 仪表盘专属配置 */}
+        {cardType === 'gauge' && (
+          <>
+            <Form.Item name={['config', 'gaugeConfig', 'min']} label="最小值">
+              <InputNumber placeholder="默认 0" style={{ width: '100%' }} />
+            </Form.Item>
+
+            <Form.Item name={['config', 'gaugeConfig', 'max']} label="最大值">
+              <InputNumber placeholder="默认 100" style={{ width: '100%' }} />
+            </Form.Item>
+
+            <Form.Item name={['config', 'gaugeConfig', 'unit']} label="单位">
+              <Input placeholder="如：% 或 °C（可选）" />
+            </Form.Item>
+
+            <Form.Item label="颜色区间配置" tooltip="定义不同数值区间的颜色，用于视觉警示">
+              <Form.List name={['config', 'gaugeConfig', 'colorRanges']}>
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.map((field) => (
+                      <div
+                        key={field.key}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr auto',
+                          gap: '8px',
+                          marginBottom: 8,
+                          alignItems: 'start',
+                        }}
+                      >
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'threshold']}
+                          rules={[{ required: true, message: '请输入阈值' }]}
+                          style={{ marginBottom: 0 }}
+                        >
+                          <InputNumber
+                            placeholder="阈值比例（0-1）"
+                            min={0}
+                            max={1}
+                            step={0.1}
+                            style={{ width: '100%' }}
+                          />
+                        </Form.Item>
+
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'color']}
+                          rules={[{ required: true, message: '请输入颜色' }]}
+                          style={{ marginBottom: 0 }}
+                        >
+                          <Input placeholder="#52c41a" />
+                        </Form.Item>
+
+                        <MinusCircleOutlined
+                          onClick={() => remove(field.name)}
+                          style={{
+                            fontSize: '18px',
+                            color: '#ff4d4f',
+                            cursor: 'pointer',
+                            marginTop: '8px',
+                          }}
+                        />
+                      </div>
+                    ))}
+                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                      添加颜色区间
+                    </Button>
+                  </>
+                )}
+              </Form.List>
+            </Form.Item>
+          </>
+        )}
+
+        {/* 状态指示器专属配置 */}
+        {cardType === 'status' && (
+          <>
+            <Form.Item label="状态映射配置" tooltip="定义不同数值或文本对应的状态颜色和显示文本">
+              <Form.List name={['config', 'statusConfig', 'statusMap']}>
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.map((field) => (
+                      <div
+                        key={field.key}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr 1.5fr auto',
+                          gap: '8px',
+                          marginBottom: 8,
+                          alignItems: 'start',
+                        }}
+                      >
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'value']}
+                          rules={[{ required: true, message: '请输入值' }]}
+                          style={{ marginBottom: 0 }}
+                        >
+                          <Input placeholder="数值或文本" />
+                        </Form.Item>
+
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'color']}
+                          rules={[{ required: true, message: '请选择颜色' }]}
+                          style={{ marginBottom: 0 }}
+                        >
+                          <Select placeholder="状态颜色">
+                            <Option value="success">成功（绿色）</Option>
+                            <Option value="warning">警告（橙色）</Option>
+                            <Option value="error">错误（红色）</Option>
+                            <Option value="processing">处理中（蓝色）</Option>
+                            <Option value="default">默认（灰色）</Option>
+                          </Select>
+                        </Form.Item>
+
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'text']}
+                          rules={[{ required: true, message: '请输入文本' }]}
+                          style={{ marginBottom: 0 }}
+                        >
+                          <Input placeholder="显示文本" />
+                        </Form.Item>
+
+                        <MinusCircleOutlined
+                          onClick={() => remove(field.name)}
+                          style={{
+                            fontSize: '18px',
+                            color: '#ff4d4f',
+                            cursor: 'pointer',
+                            marginTop: '8px',
+                          }}
+                        />
+                      </div>
+                    ))}
+                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                      添加状态映射
+                    </Button>
+                  </>
+                )}
+              </Form.List>
+            </Form.Item>
+
+            <Form.Item label="默认状态配置" tooltip="当数据值未匹配到任何映射时显示的默认状态">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '8px' }}>
+                <Form.Item
+                  name={['config', 'statusConfig', 'defaultStatus', 'color']}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Select placeholder="默认颜色">
+                    <Option value="success">成功（绿色）</Option>
+                    <Option value="warning">警告（橙色）</Option>
+                    <Option value="error">错误（红色）</Option>
+                    <Option value="processing">处理中（蓝色）</Option>
+                    <Option value="default">默认（灰色）</Option>
+                  </Select>
+                </Form.Item>
+
+                <Form.Item
+                  name={['config', 'statusConfig', 'defaultStatus', 'text']}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input placeholder="默认显示文本（如：未知）" />
+                </Form.Item>
+              </div>
             </Form.Item>
           </>
         )}

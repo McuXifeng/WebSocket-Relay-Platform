@@ -13,6 +13,8 @@ import {
 import CardConfigModal from '../components/visualization/CardConfigModal';
 import DataStatisticCard from '../components/visualization/DataStatisticCard';
 import ChartCard from '../components/visualization/ChartCard';
+import GaugeCard from '../components/visualization/GaugeCard';
+import StatusCard from '../components/visualization/StatusCard';
 
 const { Content } = Layout;
 
@@ -34,7 +36,7 @@ const VisualizationDashboardPage: React.FC = () => {
 
   // 加载卡片配置列表
   useEffect(() => {
-    loadCards();
+    void loadCards();
   }, []);
 
   /**
@@ -47,7 +49,7 @@ const VisualizationDashboardPage: React.FC = () => {
       setCards(loadedCards);
     } catch (error) {
       console.error('Failed to load cards:', error);
-      message.error('加载卡片配置失败');
+      void message.error('加载卡片配置失败');
     } finally {
       setLoading(false);
     }
@@ -57,67 +59,69 @@ const VisualizationDashboardPage: React.FC = () => {
    * 处理布局变化事件（拖拽/调整大小）
    * @param newLayout - 新的布局配置
    */
-  const handleLayoutChange = async (newLayout: GridLayoutType[]) => {
+  const handleLayoutChange = (newLayout: GridLayoutType[]) => {
     // 防止初始化时的布局变化触发保存
     if (cards.length === 0 || saving) {
       return;
     }
 
-    try {
-      setSaving(true);
+    void (async () => {
+      try {
+        setSaving(true);
 
-      // 批量更新卡片position
-      const updatePromises = newLayout.map((layoutItem) => {
-        const card = cards.find((c) => c.id === layoutItem.i);
-        if (!card) return Promise.resolve();
+        // 批量更新卡片position
+        const updatePromises = newLayout.map((layoutItem) => {
+          const card = cards.find((c) => c.id === layoutItem.i);
+          if (!card) return Promise.resolve();
 
-        const newPosition: CardPosition = {
-          x: layoutItem.x,
-          y: layoutItem.y,
-          w: layoutItem.w,
-          h: layoutItem.h,
-        };
-
-        // 只有position变化时才更新
-        if (
-          card.position.x !== newPosition.x ||
-          card.position.y !== newPosition.y ||
-          card.position.w !== newPosition.w ||
-          card.position.h !== newPosition.h
-        ) {
-          return updateCard(card.id, { position: newPosition });
-        }
-
-        return Promise.resolve();
-      });
-
-      await Promise.all(updatePromises);
-
-      // 更新本地状态
-      setCards((prevCards) =>
-        prevCards.map((card) => {
-          const layoutItem = newLayout.find((item) => item.i === card.id);
-          if (!layoutItem) return card;
-
-          return {
-            ...card,
-            position: {
-              x: layoutItem.x,
-              y: layoutItem.y,
-              w: layoutItem.w,
-              h: layoutItem.h,
-            },
+          const newPosition: CardPosition = {
+            x: layoutItem.x,
+            y: layoutItem.y,
+            w: layoutItem.w,
+            h: layoutItem.h,
           };
-        })
-      );
 
-      message.success('布局已保存');
-    } catch (error) {
-      console.error('Failed to save layout:', error);
-      message.error('保存布局失败');
-    } finally {
-      setSaving(false);
-    }
+          // 只有position变化时才更新
+          if (
+            card.position.x !== newPosition.x ||
+            card.position.y !== newPosition.y ||
+            card.position.w !== newPosition.w ||
+            card.position.h !== newPosition.h
+          ) {
+            return updateCard(card.id, { position: newPosition });
+          }
+
+          return Promise.resolve();
+        });
+
+        await Promise.all(updatePromises);
+
+        // 更新本地状态
+        setCards((prevCards) =>
+          prevCards.map((card) => {
+            const layoutItem = newLayout.find((item) => item.i === card.id);
+            if (!layoutItem) return card;
+
+            return {
+              ...card,
+              position: {
+                x: layoutItem.x,
+                y: layoutItem.y,
+                w: layoutItem.w,
+                h: layoutItem.h,
+              },
+            };
+          })
+        );
+
+        void message.success('布局已保存');
+      } catch (error) {
+        console.error('Failed to save layout:', error);
+        void message.error('保存布局失败');
+      } finally {
+        setSaving(false);
+      }
+    })();
   };
 
   /**
@@ -142,7 +146,7 @@ const VisualizationDashboardPage: React.FC = () => {
   const handleModalOk = () => {
     setModalVisible(false);
     setEditingCard(null);
-    loadCards(); // 重新加载卡片列表
+    void loadCards(); // 重新加载卡片列表
   };
 
   /**
@@ -163,16 +167,17 @@ const VisualizationDashboardPage: React.FC = () => {
       okText: '确认',
       cancelText: '取消',
       okButtonProps: { danger: true },
-      onOk: async () => {
-        try {
-          await deleteCard(cardId);
-          setCards((prevCards) => prevCards.filter((card) => card.id !== cardId));
-          message.success('卡片已删除');
-        } catch (error) {
-          console.error('Failed to delete card:', error);
-          message.error('删除卡片失败');
-        }
-      },
+      onOk: () =>
+        void (async () => {
+          try {
+            await deleteCard(cardId);
+            setCards((prevCards) => prevCards.filter((card) => card.id !== cardId));
+            void message.success('卡片已删除');
+          } catch (error) {
+            console.error('Failed to delete card:', error);
+            void message.error('删除卡片失败');
+          }
+        })(),
     });
   };
 
@@ -207,9 +212,9 @@ const VisualizationDashboardPage: React.FC = () => {
       case 'statistic':
         return <DataStatisticCard {...commonProps} />;
       case 'gauge':
+        return <GaugeCard {...commonProps} />;
       case 'status':
-        // 这些类型暂未实现，使用数值卡片作为占位符
-        return <DataStatisticCard {...commonProps} />;
+        return <StatusCard {...commonProps} />;
       default:
         return <DataStatisticCard {...commonProps} />;
     }

@@ -108,8 +108,17 @@ export class StatsBatchUpdater {
 
     this.batch.set(endpointId, existing);
 
-    // 如果累积量超过阈值，立即刷新
-    if (this.batch.size >= this.config.batchSize) {
+    // Epic 10 Story 10.5: 断开连接时立即刷新，提升状态更新实时性
+    // 设计权衡: disconnect 操作不再享受批量优化，但断开频率远低于消息，性能影响可忽略
+    if (action === 'disconnect') {
+      logger.debug('[StatsBatchUpdater] Disconnect detected, flushing immediately', {
+        endpointId,
+        batchSize: this.batch.size,
+      });
+      // 立即刷新，不等待批次累积
+      void this.flush();
+    } else if (this.batch.size >= this.config.batchSize) {
+      // 非断开操作仍使用阈值刷新逻辑
       logger.debug('[StatsBatchUpdater] Batch size threshold reached, flushing immediately', {
         batchSize: this.batch.size,
       });

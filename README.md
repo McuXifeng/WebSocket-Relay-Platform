@@ -46,9 +46,111 @@ WebSocket Relay Platform 是一个企业级的实时通信平台，采用 Monore
 
 - Node.js 20.x LTS 或更高版本
 - pnpm 8.x 或更高版本
-- MySQL 8.0 或更高版本
+- MySQL 8.0 或更高版本（或使用 Docker）
 
-## 快速开始
+### MySQL 数据库安装
+
+#### 方式一：使用 Docker（推荐，快速简单）
+
+如果你已安装 Docker，可以使用以下命令快速启动 MySQL 容器：
+
+```bash
+# 启动 MySQL 8.0 容器
+docker run -d \
+  --name mysql-websocket \
+  -e MYSQL_ROOT_PASSWORD=root123 \
+  -e MYSQL_DATABASE=websocket_relay \
+  -p 3306:3306 \
+  mysql:8.0
+
+# 验证 MySQL 是否启动成功
+docker exec mysql-websocket mysqladmin ping -h localhost -uroot -proot123
+
+# 常用 Docker 命令
+docker start mysql-websocket   # 启动容器
+docker stop mysql-websocket    # 停止容器
+docker logs mysql-websocket    # 查看日志
+docker rm mysql-websocket      # 删除容器
+```
+
+**默认配置：**
+
+- 用户名: `root`
+- 密码: `root123`
+- 数据库名: `websocket_relay`
+- 端口: `3306`
+
+#### 方式二：本地安装 MySQL
+
+如果你使用 macOS，可以通过 Homebrew 安装：
+
+```bash
+# 安装 Homebrew（如果未安装）
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 安装 MySQL
+brew install mysql
+
+# 启动 MySQL 服务
+brew services start mysql
+
+# 创建数据库
+mysql -u root -e "CREATE DATABASE websocket_relay CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
+
+其他系统请参考 MySQL 官方文档。
+
+## 部署方式
+
+本项目支持两种部署方式，请根据你的需求选择：
+
+### 🐳 方式一：Docker 部署（推荐）
+
+**适用场景：**
+
+- ✅ 生产环境部署
+- ✅ 已安装宝塔面板的服务器
+- ✅ 快速部署，一键启动所有服务
+- ✅ 环境隔离，不污染主机环境
+
+**优势：**
+
+- 自动配置 MySQL 数据库
+- 自动配置 Nginx 反向代理
+- 一条命令启动所有服务
+- 数据持久化和备份简单
+
+#### 快速开始（Docker）
+
+```bash
+# 1. 克隆项目
+git clone <repository-url>
+cd websocket-relay-platform
+
+# 2. 一键部署（自动完成所有配置）
+chmod +x docker-deploy.sh
+./docker-deploy.sh
+
+# 3. 访问应用
+# 浏览器打开: http://localhost
+```
+
+**详细文档：**
+
+- **宝塔面板部署指南：** [docs/DOCKER_DEPLOY.md](docs/DOCKER_DEPLOY.md)
+- **Docker 配置说明：** [docker/README.md](docker/README.md)
+
+---
+
+### 💻 方式二：传统部署（开发环境）
+
+**适用场景：**
+
+- ✅ 本地开发
+- ✅ 代码调试
+- ✅ 需要实时热更新
+
+## 快速开始（传统部署）
 
 ### 1. 克隆项目
 
@@ -57,13 +159,19 @@ git clone <repository-url>
 cd websocket-relay-platform
 ```
 
-### 2. 安装依赖
+### 2. 安装 pnpm（如果未安装）
+
+```bash
+npm install -g pnpm
+```
+
+### 3. 安装依赖
 
 ```bash
 pnpm install
 ```
 
-### 3. 配置环境变量
+### 4. 配置环境变量
 
 复制环境变量模板并根据实际情况修改：
 
@@ -75,15 +183,21 @@ cp .env.example packages/frontend/.env.local
 cp .env.example packages/backend/.env
 ```
 
-### 4. 初始化数据库
+**重要：** 如果使用 Docker 启动的 MySQL，确保 `packages/backend/.env` 中的数据库配置为：
+
+```
+DATABASE_URL="mysql://root:root123@localhost:3306/websocket_relay?connection_limit=20&pool_timeout=30"
+```
+
+### 5. 初始化数据库
 
 ```bash
 cd packages/backend
-pnpm prisma:migrate
 pnpm prisma:generate
+pnpm prisma:migrate
 ```
 
-### 5. 启动开发服务器
+### 6. 启动开发服务器
 
 ```bash
 # 回到根目录
@@ -96,6 +210,39 @@ pnpm dev
 前端服务将在 `http://localhost:5173` 启动
 后端 API 服务将在 `http://localhost:3000` 启动
 WebSocket 服务将在 `ws://localhost:3001` 启动
+
+## WebSocket 心跳机制
+
+本平台采用优化的 WebSocket 心跳机制，确保连接状态的实时性和可靠性：
+
+### 心跳参数（Epic 10 Story 10.5 优化）
+
+- **心跳间隔：** 15 秒（降低自原 30 秒）
+- **超时检测：** 30 秒内检测异常断开（两次心跳无响应即断开）
+- **检测延迟优化：**
+  - 设备断开检测延迟：从 68 秒降至 **5 秒以内**
+  - 心跳超时检测延迟：从 60 秒降至 **30 秒以内**
+  - 断开状态更新延迟：从 5 秒降至 **< 1 秒**
+
+### 工作原理
+
+1. **服务器主动心跳：** WebSocket 服务器每 15 秒向客户端发送 `ping` 帧
+2. **客户端响应：** 客户端收到 `ping` 后自动响应 `pong` 帧
+3. **活跃标记：** 服务器收到 `pong` 后标记连接为活跃（`socket.isAlive = true`）
+4. **超时断开：** 如果连续两次心跳（30 秒）未收到 `pong` 响应，服务器主动断开连接
+5. **幂等清理：** 使用 `socket.isCleanedUp` 标志防止重复清理，确保统计数据准确
+
+### 性能优化
+
+- **断开连接立即刷新：** 断开操作立即触发统计数据刷新（延迟 < 1 秒）
+- **批量更新保留：** 连接和消息操作仍使用批量累积（5 秒刷新或达到 100 条阈值）
+- **压力测试验证：** 支持 100+ 并发连接异常断开场景，无连接泄漏
+
+### 日志增强
+
+- **正常断开：** 使用 `logger.info` 级别，记录连接时长和设备ID
+- **异常断开：** 使用 `logger.warn` 级别，便于故障排查
+- **详细元数据：** 记录端点ID、断开原因、连接时长等信息
 
 ## 项目结构
 

@@ -5,6 +5,7 @@ import { PrismaClient, Endpoint } from '@prisma/client';
 import { connectionManager } from './connection-manager';
 import { broadcastToEndpoint } from './message-router';
 import { updateCommandStatus } from '../services/control-command.service';
+import logger from '@/config/logger.js';
 
 // 扩展 WebSocket 类型以包含自定义属性
 interface ExtendedWebSocket extends WebSocket {
@@ -16,6 +17,7 @@ interface ExtendedWebSocket extends WebSocket {
   isCleanedUp?: boolean; // 标记是否已清理，防止重复清理
   isAlive?: boolean; // 心跳检测标志
   pingInterval?: NodeJS.Timeout; // 心跳定时器
+  connectedAt?: Date; // Epic 10 Story 10.5: 连接建立时间,用于计算连接时长
 }
 
 // 创建 Prisma 客户端
@@ -274,6 +276,7 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
     socket.endpointId = endpointId;
     socket.endpoint = endpoint;
     socket.isAlive = true; // 初始化心跳标志
+    socket.connectedAt = new Date(); // Epic 10 Story 10.5: 记录连接建立时间
 
     // 将连接添加到 ConnectionManager (传递数据库 UUID 用于统计更新和 userId 用于告警通知)
     await connectionManager.addConnection(endpointId, socket, endpoint.id, endpoint.user_id);
@@ -426,6 +429,11 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
       const storedEndpointId = socket.endpointId;
       const endpoint = socket.endpoint;
 
+      // Epic 10 Story 10.5: 计算连接时长,用于日志记录
+      const connectionDuration = socket.connectedAt
+        ? Math.round((Date.now() - socket.connectedAt.getTime()) / 1000)
+        : null;
+
       // 从 ConnectionManager 中移除连接 (传递数据库 UUID 用于统计更新和 userId 用于告警通知)
       if (storedEndpointId && endpoint) {
         await connectionManager.removeConnection(
@@ -434,20 +442,41 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
           endpoint.id,
           endpoint.user_id
         );
-        // eslint-disable-next-line no-console
-        console.log(`WebSocket ${reason} from endpoint: ${storedEndpointId}`);
+
+        // Epic 10 Story 10.5: 增强断开原因日志记录
+        // 根据断开原因选择日志级别: 正常断开用info,超时和错误用warn
+        const logMessage = `WebSocket disconnected from endpoint: ${storedEndpointId}`;
+        const logMeta = {
+          endpointId: storedEndpointId,
+          reason,
+          connectionDuration: connectionDuration ? `${connectionDuration}s` : 'unknown',
+          deviceId: socket.deviceId,
+        };
+
+        if (reason === 'disconnected') {
+          // 正常关闭
+          logger.info(logMessage, logMeta);
+        } else {
+          // 心跳超时或错误断开
+          logger.warn(logMessage, logMeta);
+        }
       }
     } catch (error) {
-      console.error(`Error during connection cleanup (${reason}):`, error);
+      logger.error(`Error during connection cleanup (${reason}):`, { error });
     }
   };
 
-  // 心跳检测 - 每 30 秒发送 ping，检测连接是否存活
+  // Epic 10 Story 10.5: 心跳检测优化 - 降低异常断开检测延迟
+  // 每 15 秒发送 ping，检测连接是否存活 (原 30 秒)
+  // 超时判断: 两次心跳无响应即断开，检测延迟从 60 秒降低到 30 秒
   socket.pingInterval = setInterval(() => {
     if (socket.isAlive === false) {
       // 连接已死，清理并关闭
-      // eslint-disable-next-line no-console
-      console.log(`WebSocket heartbeat timeout for endpoint: ${socket.endpointId}`);
+      // Epic 10 Story 10.5 QA修复: 心跳超时使用logger.warn而非console.log,保持日志标准一致性
+      logger.warn(`WebSocket heartbeat timeout for endpoint: ${socket.endpointId}`, {
+        endpointId: socket.endpointId,
+        deviceId: socket.deviceId,
+      });
       void cleanupConnection('heartbeat-timeout');
       socket.terminate(); // 强制终止连接
       return;
@@ -456,7 +485,7 @@ async function handleConnection(socket: ExtendedWebSocket, req: IncomingMessage)
     // 标记为未响应，等待 pong
     socket.isAlive = false;
     socket.ping();
-  }, 30000); // 30 秒心跳间隔
+  }, 15000); // 15 秒心跳间隔 (Epic 10 Story 10.5: 降低异常断开检测延迟)
 
   // pong 事件处理 - 收到 pong 说明连接存活
   socket.on('pong', () => {
